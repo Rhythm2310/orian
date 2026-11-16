@@ -5,7 +5,8 @@ import {
   isLectureInSyllabus,
   validateExamInput,
   validateRoutineTimeSlot
-} from '../src/core/validators.js';
+} from '../src/core/validators.ts';
+import type { RoutineSlotInput, RoutineSlot } from '../src/types/domain.ts';
 
 describe('Validators & Syllabus Matcher', () => {
   describe('parseSyllabusRange', () => {
@@ -58,7 +59,7 @@ describe('Validators & Syllabus Matcher', () => {
       const exam = {
         course_id: 'c1',
         title: 'Class Test 2',
-        assessment_type: 'CT',
+        assessment_type: 'CT' as const,
         exam_date: '2026-11-20T10:00:00',
         syllabus_range: '8-12',
         revision_target_blocks: 4
@@ -78,7 +79,7 @@ describe('Validators & Syllabus Matcher', () => {
       const exam = {
         course_id: 'c1',
         title: 'Midterm',
-        assessment_type: 'Midterm',
+        assessment_type: 'MIDTERM' as const,
         exam_date: '2026-11-25T09:00:00'
       };
       const validated = validateExamInput(exam);
@@ -88,31 +89,31 @@ describe('Validators & Syllabus Matcher', () => {
 
   describe('validateRoutineTimeSlot', () => {
     test('validates valid non-overlapping timeslot', () => {
-      const existing = [
-        { day_of_week: 1, start_time: '09:00', end_time: '10:30' }
+      const existing: RoutineSlot[] = [
+        { id: '1', course_id: 'c1', day_of_week: 1, start_time: '09:00', end_time: '10:30' }
       ];
-      const newSlot = { day_of_week: 1, start_time: '11:00', end_time: '12:30' };
+      const newSlot: RoutineSlotInput = { course_id: 'c1', day_of_week: 1, start_time: '11:00', end_time: '12:30' };
       assert.doesNotThrow(() => validateRoutineTimeSlot(newSlot, existing));
     });
 
     test('rejects slot where end_time <= start_time', () => {
-      const slot = { day_of_week: 1, start_time: '11:00', end_time: '10:30' };
+      const slot: RoutineSlotInput = { course_id: 'c1', day_of_week: 1, start_time: '11:00', end_time: '10:30' };
       assert.throws(() => validateRoutineTimeSlot(slot, []), /end_time must be after start_time/i);
     });
 
     test('detects slot collision on same day', () => {
-      const existing = [
-        { day_of_week: 1, start_time: '09:00', end_time: '10:30' }
+      const existing: RoutineSlot[] = [
+        { id: '1', course_id: 'c1', day_of_week: 1, start_time: '09:00', end_time: '10:30' }
       ];
-      const overlappingSlot = { day_of_week: 1, start_time: '10:00', end_time: '11:30' };
+      const overlappingSlot: RoutineSlotInput = { course_id: 'c1', day_of_week: 1, start_time: '10:00', end_time: '11:30' };
       assert.throws(() => validateRoutineTimeSlot(overlappingSlot, existing), /overlaps with an existing slot/i);
     });
 
     test('allows same time on different day', () => {
-      const existing = [
-        { day_of_week: 1, start_time: '09:00', end_time: '10:30' }
+      const existing: RoutineSlot[] = [
+        { id: '1', course_id: 'c1', day_of_week: 1, start_time: '09:00', end_time: '10:30' }
       ];
-      const tuesdaySlot = { day_of_week: 2, start_time: '09:00', end_time: '10:30' };
+      const tuesdaySlot: RoutineSlotInput = { course_id: 'c1', day_of_week: 2, start_time: '09:00', end_time: '10:30' };
       assert.doesNotThrow(() => validateRoutineTimeSlot(tuesdaySlot, existing));
     });
   });

@@ -1,18 +1,31 @@
 /**
  * Orian Exam Triage & Proportional Capacity Allocator
+ * 100% Strict TypeScript Implementation
  * Implements strain ratio calculations, crunch deferrals, colliding exam
  * proportional split, finals prep mode, and capacity deficit diagnostics.
  */
 
-import { isLectureInSyllabus } from './validators.js';
-import { getEffectiveMultiplier, getAcademicDate } from './antiBacklog.js';
+import type {
+  Course,
+  ClassSession,
+  Assessment,
+  DailyAllocationResult,
+  CapacityDeficit,
+  CourseAllocation
+} from '../types/domain.ts';
+import { isLectureInSyllabus } from './validators.ts';
+import { getEffectiveMultiplier, getAcademicDate } from './antiBacklog.ts';
 
 /**
  * Checks if a course's regular class should be given "Crunch Deferral".
  * Triggers if any exam is <= 48h (Midterm/Final) or <= 24h (CT)
  * and that exam is NOT for this course.
  */
-export function shouldCrunchDeferCourse(courseId, upcomingExams = [], now = new Date()) {
+export function shouldCrunchDeferCourse(
+  courseId: string,
+  upcomingExams: Assessment[] = [],
+  now: Date | string | number = new Date()
+): boolean {
   const nowDate = now instanceof Date ? now : new Date(now);
 
   for (const exam of upcomingExams) {
@@ -43,7 +56,12 @@ export function shouldCrunchDeferCourse(courseId, upcomingExams = [], now = new 
  * Computes strain metric for an exam:
  * strain = (requiredPrepBlocks * multiplier) / daysRemaining
  */
-export function computeExamStrain(exam, inSyllabusCount = 0, courseMultiplier = 1.0, now = new Date()) {
+export function computeExamStrain(
+  exam: Assessment,
+  inSyllabusCount = 0,
+  courseMultiplier = 1.0,
+  now: Date | string | number = new Date()
+): number {
   const nowDate = now instanceof Date ? now : new Date(now);
   const examDate = new Date(exam.exam_date);
   const diffHours = Math.max(1, (examDate.getTime() - nowDate.getTime()) / (1000 * 60 * 60));
@@ -56,6 +74,13 @@ export function computeExamStrain(exam, inSyllabusCount = 0, courseMultiplier = 
   return Math.round(strain * 100) / 100;
 }
 
+export interface CapacityDeficitOptions {
+  upcomingExams?: Assessment[];
+  unwatchedLectures?: ClassSession[];
+  dailyCapacityBlocks?: number;
+  now?: Date | string | number;
+}
+
 /**
  * Computes capacity deficit if prep blocks > available capacity.
  */
@@ -64,7 +89,7 @@ export function computeCapacityDeficit({
   unwatchedLectures = [],
   dailyCapacityBlocks = 4,
   now = new Date()
-}) {
+}: CapacityDeficitOptions): CapacityDeficit {
   const nowDate = now instanceof Date ? now : new Date(now);
   let totalRequiredPrep = 0;
   let minDaysLeft = Infinity;
@@ -106,11 +131,21 @@ export function computeCapacityDeficit({
   };
 }
 
+interface AllocatableItem {
+  course_id: string;
+  weight: number;
+  reason?: string;
+  hasExam?: boolean;
+}
+
 /**
  * Proportional integer allocation using Largest Remainder (Hare-Niemeyer) method.
  * Guarantees sum(allocated) === targetBudget strictly.
  */
-function distributeIntegerBlocks(items, targetBudget) {
+function distributeIntegerBlocks<T extends AllocatableItem>(
+  items: T[],
+  targetBudget: number
+): (T & { allocatedBlocks: number; percentage: number })[] {
   if (!items || items.length === 0 || targetBudget <= 0) {
     return (items || []).map(item => ({ ...item, allocatedBlocks: 0, percentage: 0 }));
   }
@@ -120,8 +155,8 @@ function distributeIntegerBlocks(items, targetBudget) {
   // If budget is smaller than items count, give 1 block to top priority items by weight
   if (targetBudget < items.length) {
     const sorted = [...items]
-      .map((item, originalIndex) => ({ ...item, originalIndex }))
-      .sort((a, b) => b.weight - a.weight);
+      .map((item, originalIndex) => ({ item, originalIndex }))
+      .sort((a, b) => b.item.weight - a.item.weight);
 
     const allocations = new Array(items.length).fill(0);
     for (let i = 0; i < targetBudget; i++) {
@@ -147,8 +182,8 @@ function distributeIntegerBlocks(items, targetBudget) {
   });
 
   const allocated = quotas.map(q => baseline + q.floor);
-  let currentSum = allocated.reduce((sum, v) => sum + v, 0);
-  let shortfall = targetBudget - currentSum;
+  const currentSum = allocated.reduce((sum, v) => sum + v, 0);
+  const shortfall = targetBudget - currentSum;
 
   if (shortfall > 0) {
     const withIndices = quotas.map((q, idx) => ({ remainder: q.remainder, idx }));
@@ -165,6 +200,17 @@ function distributeIntegerBlocks(items, targetBudget) {
     percentage: Math.round((allocated[idx] / targetBudget) * 100)
   }));
 }
+
+export interface AllocateStudyBlocksOptions {
+  totalDailyBlocks?: number;
+  courses?: Course[];
+  upcomingExams?: Assessment[];
+  unwatchedLectures?: ClassSession[];
+  todayClasses?: ClassSession[];
+  finalsPrepMode?: boolean;
+  now?: Date | string | number;
+}
+
 /**
  * Main capacity allocator:
  * Allocates daily study budget across courses, shields, and exams.
@@ -177,7 +223,7 @@ export function allocateDailyStudyBlocks({
   todayClasses = [],
   finalsPrepMode = false,
   now = new Date()
-}) {
+}: AllocateStudyBlocksOptions): DailyAllocationResult {
   const nowDate = now instanceof Date ? now : new Date(now);
   const currentDateStr = getAcademicDate(nowDate);
 
@@ -190,8 +236,9 @@ export function allocateDailyStudyBlocks({
 
     const targetExams = finalsExams.length > 0 ? finalsExams : upcomingExams;
 
-    const examItems = targetExams.map(exam => {
-      const course = courses.find(c => c.id === exam.course_id) || { effort_multiplier: 1.0 };
+    const courseWeightMap = new Map<string, number>();
+    for (const exam of targetExams) {
+      const course = courses.find(c => c.id === exam.course_id) || { effort_multiplier: 1.0, multiplier_expires_at: null };
       const mult = getEffectiveMultiplier(course, currentDateStr);
       const inSyllabusCount = unwatchedLectures.filter(l =>
         l.course_id === exam.course_id &&
@@ -199,20 +246,23 @@ export function allocateDailyStudyBlocks({
       ).length;
 
       const strain = computeExamStrain(exam, inSyllabusCount, mult, nowDate);
-      return {
-        course_id: exam.course_id,
-        weight: Math.max(0.1, strain),
-        reason: 'Finals Prep Focus'
-      };
-    });
+      const current = courseWeightMap.get(exam.course_id) || 0;
+      courseWeightMap.set(exam.course_id, current + Math.max(0.1, strain));
+    }
+
+    const examItems: AllocatableItem[] = Array.from(courseWeightMap.entries()).map(([course_id, weight]) => ({
+      course_id,
+      weight,
+      reason: 'Finals Prep Focus'
+    }));
 
     const distributed = distributeIntegerBlocks(examItems, totalDailyBlocks);
 
-    const courseAllocations = distributed.map(item => ({
+    const courseAllocations: CourseAllocation[] = distributed.map(item => ({
       course_id: item.course_id,
       allocatedBlocks: item.allocatedBlocks,
       percentage: item.percentage,
-      reason: item.reason
+      reason: item.reason || 'Finals Prep Focus'
     }));
 
     return {
@@ -225,8 +275,8 @@ export function allocateDailyStudyBlocks({
 
   // Normal / Exam Crunch mode
   // Check crunch deferral for today's classes
-  const nonDeferredClasses = [];
-  const deferredClasses = [];
+  const nonDeferredClasses: ClassSession[] = [];
+  const deferredClasses: ClassSession[] = [];
 
   for (const cls of todayClasses) {
     if (shouldCrunchDeferCourse(cls.course_id, upcomingExams, nowDate)) {
@@ -242,7 +292,7 @@ export function allocateDailyStudyBlocks({
   const remainingStudyBudget = Math.max(0, totalDailyBlocks - routineShieldBlocks);
 
   // Compute strains across active courses
-  const courseWeights = courses.map(course => {
+  const courseWeights: AllocatableItem[] = courses.map(course => {
     const mult = getEffectiveMultiplier(course, currentDateStr);
     const relatedExam = upcomingExams.find(e => e.course_id === course.id);
 
@@ -268,7 +318,7 @@ export function allocateDailyStudyBlocks({
 
   const distributed = distributeIntegerBlocks(pool, remainingStudyBudget);
 
-  const courseAllocations = distributed.map(item => ({
+  const courseAllocations: CourseAllocation[] = distributed.map(item => ({
     course_id: item.course_id,
     allocatedBlocks: item.allocatedBlocks,
     percentage: item.percentage,

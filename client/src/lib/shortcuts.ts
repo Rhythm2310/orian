@@ -1,10 +1,15 @@
-import { store } from './store.svelte.js';
-import { api } from './api.js';
+/**
+ * Global Keyboard Shortcuts Manager
+ * 100% Strict TypeScript
+ */
 
-export function setupKeyboardShortcuts() {
+import { store } from './store.svelte.ts';
+import { api } from './api.ts';
+
+export function setupKeyboardShortcuts(): void {
   if (typeof window === 'undefined') return;
 
-  window.addEventListener('keydown', (e) => {
+  window.addEventListener('keydown', (e: KeyboardEvent) => {
     // Ignore when typing inside input or textarea
     const activeEl = document.activeElement;
     const isInput = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT');

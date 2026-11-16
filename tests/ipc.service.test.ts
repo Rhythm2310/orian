@@ -1,12 +1,13 @@
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { createDatabase } from '../src/db/client.js';
-import { runMigrations } from '../src/db/migrations.js';
-import { IpcService } from '../src/ipc/service.js';
+import { createDatabase } from '../src/db/client.ts';
+import { runMigrations } from '../src/db/migrations.ts';
+import { IpcService } from '../src/ipc/service.ts';
+import type { DatabaseSync } from 'node:sqlite';
 
 describe('Pure IPC Service Controller', () => {
-  let db;
-  let service;
+  let db: DatabaseSync;
+  let service: IpcService;
 
   beforeEach(() => {
     db = createDatabase(':memory:');
@@ -68,8 +69,8 @@ describe('Pure IPC Service Controller', () => {
 
       const started = service.pomodoroStart({
         course_id: course.id,
-        target_duration_seconds: 1500,
-        session_mode: 'focus'
+        durationMinutes: 25,
+        mode: 'free_focus'
       });
       assert.equal(started.status, 'running');
 
@@ -79,7 +80,7 @@ describe('Pure IPC Service Controller', () => {
 
       const completed = service.pomodoroComplete({
         notes: 'Chapter 4 graph search'
-      });
+      })!;
       assert.equal(completed.status, 'completed');
       assert.equal(service.pomodoroGetActive(), null);
     });
@@ -92,7 +93,9 @@ describe('Pure IPC Service Controller', () => {
         course_id: course.id,
         date: '2026-11-16',
         lecture_number: 14,
-        status: 'scheduled'
+        status: 'scheduled',
+        start_time: '09:00',
+        end_time: '10:30'
       });
 
       const res = service.classesHandleDisruption({
@@ -100,7 +103,7 @@ describe('Pure IPC Service Controller', () => {
         disruptionType: 'online_recorded'
       });
 
-      assert.equal(res.updatedClass.status, 'online_recorded');
+      assert.equal(res.updatedClass?.status, 'online_recorded');
       assert.equal(res.guardActive, true);
     });
   });

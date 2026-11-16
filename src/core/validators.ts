@@ -1,13 +1,18 @@
 /**
  * Orian Core Validators & Parsers
+ * 100% Strict TypeScript Implementation
  */
+
+import type { AssessmentInput, RoutineSlot, RoutineSlotInput } from '../types/domain.ts';
+
+export type ParsedSyllabus = number[] | 'ALL';
 
 /**
  * Parses raw syllabus range string.
  * Supports: "8-12", "3, 5, 8-10", "All", "all"
  * Returns array of numbers or 'ALL'
  */
-export function parseSyllabusRange(raw) {
+export function parseSyllabusRange(raw: unknown): ParsedSyllabus {
   if (raw === null || raw === undefined) return [];
   if (typeof raw !== 'string') return [];
   const trimmed = raw.trim();
@@ -18,7 +23,7 @@ export function parseSyllabusRange(raw) {
   }
 
   const parts = trimmed.split(',').map(s => s.trim()).filter(Boolean);
-  const result = new Set();
+  const result = new Set<number>();
 
   for (const part of parts) {
     if (part.includes('-')) {
@@ -52,16 +57,21 @@ export function parseSyllabusRange(raw) {
 /**
  * Checks if a lecture number falls within the syllabus.
  */
-export function isLectureInSyllabus(lectureNo, syllabusRange) {
+export function isLectureInSyllabus(lectureNo: number | null | undefined, syllabusRange: unknown): boolean {
+  if (lectureNo === null || lectureNo === undefined) return false;
   if (syllabusRange === 'ALL') return true;
   if (!Array.isArray(syllabusRange)) return false;
   return syllabusRange.includes(lectureNo);
 }
 
+export interface ValidatedExamOutput extends AssessmentInput {
+  parsed_syllabus: ParsedSyllabus;
+}
+
 /**
  * Validates exam / assessment payload
  */
-export function validateExamInput(examData) {
+export function validateExamInput(examData: AssessmentInput | (Partial<AssessmentInput> & Record<string, unknown>)): ValidatedExamOutput {
   if (!examData || typeof examData !== 'object') {
     throw new Error('Invalid exam data');
   }
@@ -74,32 +84,38 @@ export function validateExamInput(examData) {
     throw new Error('exam_date is required');
   }
 
-  const dateObj = new Date(examData.exam_date);
+  const dateObj = new Date(examData.exam_date as string);
   if (Number.isNaN(dateObj.getTime())) {
     throw new Error('Invalid exam_date format');
   }
 
   const assessment_type = examData.assessment_type || 'CT';
-  const revision_target_blocks = examData.revision_target_blocks && examData.revision_target_blocks > 0
-    ? parseInt(examData.revision_target_blocks, 10)
+  const revision_target_blocks = examData.revision_target_blocks && Number(examData.revision_target_blocks) > 0
+    ? parseInt(String(examData.revision_target_blocks), 10)
     : 4;
 
   const rawSyllabus = examData.syllabus_range || 'ALL';
   const parsed_syllabus = parseSyllabusRange(rawSyllabus);
 
   return {
-    ...examData,
+    course_id: examData.course_id,
+    title: examData.title || `${assessment_type} Assessment`,
     assessment_type,
+    exam_date: String(examData.exam_date),
+    syllabus_range: String(rawSyllabus),
+    parsed_syllabus,
+    weight_percent: examData.weight_percent !== undefined ? Number(examData.weight_percent) : null,
     revision_target_blocks,
-    syllabus_range: rawSyllabus,
-    parsed_syllabus
+    revision_completed_blocks: examData.revision_completed_blocks ? Number(examData.revision_completed_blocks) : 0,
+    is_completed: examData.is_completed ? 1 : 0,
+    notes: examData.notes ? String(examData.notes) : null
   };
 }
 
 /**
  * Converts "HH:MM" string to minutes from midnight
  */
-function timeToMinutes(timeStr) {
+function timeToMinutes(timeStr: string): number {
   const [h, m] = timeStr.split(':').map(Number);
   return h * 60 + m;
 }
@@ -107,7 +123,7 @@ function timeToMinutes(timeStr) {
 /**
  * Validates routine time slot and prevents overlaps
  */
-export function validateRoutineTimeSlot(slot, existingSlots = []) {
+export function validateRoutineTimeSlot(slot: RoutineSlotInput, existingSlots: (RoutineSlot | RoutineSlotInput)[] = []): boolean {
   if (!slot.start_time || !slot.end_time) {
     throw new Error('start_time and end_time are required');
   }

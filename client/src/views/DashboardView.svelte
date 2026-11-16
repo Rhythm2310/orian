@@ -1,99 +1,104 @@
-<script>
-  import { store } from '../lib/store.svelte.js';
-  import { api } from '../lib/api.js';
+<script lang="ts">
+  import { store } from '../lib/store.svelte.ts';
+  import { api } from '../lib/api.ts';
   import {
     ShieldCheck,
-    ShieldAlert,
     ClockAlert,
     Play,
     CheckCircle2,
     CalendarPlus,
     Sparkles,
-    Flame
+    Flame,
+    ArrowRight
   } from '@lucide/svelte';
 
   import EffortSplitBar from '../components/EffortSplitBar.svelte';
   import ExamRadar from '../components/ExamRadar.svelte';
   import CrunchDeficitAlert from '../components/CrunchDeficitAlert.svelte';
+  import type { ClassSession, Course } from '../lib/types.ts';
 
-  async function launchPomodoroForClass(cls) {
+  async function launchPomodoroForClass(cls: ClassSession): Promise<void> {
     await api.startPomodoro({
       course_id: cls.course_id,
       class_id: cls.id,
-      session_mode: 'recovery',
-      target_duration_seconds: 1500,
-      notes: `Reviewing: ${cls.title || 'Lecture ' + cls.lecture_number}`
+      mode: 'lecture_recovery',
+      durationMinutes: 25
     });
     await store.refreshSnapshot();
     store.setView('pomodoro');
   }
 
-  async function markClassReviewed(cls) {
+  async function markClassReviewed(cls: ClassSession): Promise<void> {
     await api.markClassReviewed(cls.id);
-    store.showToast(`Lecture marked as reviewed. Shield secured!`);
+    store.showToast('Lecture marked as reviewed. Shield secured!');
     await store.refreshSnapshot();
   }
 
-  function getCourse(courseId) {
-    return (store.snapshot?.courses || []).find(c => c.id === courseId) || { code: courseId, color: '#1A6B4E' };
+  function getCourse(courseId: string): Pick<Course, 'code' | 'color'> {
+    const found = (store.snapshot?.courses || []).find(c => c.id === courseId);
+    return found ? { code: found.code, color: found.color } : { code: courseId, color: '#1A6B4E' };
   }
 </script>
 
 <div class="stage-content">
-  <!-- Today's Header & Quote Banner -->
+  <!-- Top Section: Academic Day Status & Contextual Offline Quote (Z-Pattern Flow) -->
   <div class="dashboard-header">
     <div class="header-left">
       <h1>Today's Battle Plan</h1>
       <p class="academic-date-label">
-        Academic Day: <span class="tabular-nums font-mono">{store.snapshot?.academicDate}</span>
+        Academic Day: <span class="tabular-nums font-mono">{store.snapshot?.academicDate || 'Today'}</span>
         {#if store.snapshot?.settings?.finals_prep_mode}
-          · <span class="finals-badge">Finals Prep Mode</span>
+          · <span class="tag tag-amber">Finals Prep Mode</span>
         {/if}
       </p>
     </div>
 
     {#if store.snapshot?.quote}
-      <div class="quote-card">
-        <Sparkles size={14} strokeWidth={1.75} class="quote-sparkle" />
+      <div class="quote-card surface-card" title="Offline study mindset quote">
+        <Sparkles size={14} strokeWidth={2} class="quote-sparkle" />
         <span class="quote-text">"{store.snapshot.quote.text}"</span>
       </div>
     {/if}
   </div>
 
   <!-- Capacity Crunch Deficit Alert -->
-  {#if store.snapshot?.deficit}
-    <CrunchDeficitAlert deficit={store.snapshot.deficit} />
+  {#if store.snapshot?.capacityDeficit}
+    <CrunchDeficitAlert deficit={store.snapshot.capacityDeficit} />
   {/if}
 
-  <!-- Exam Radar Strip -->
+  <!-- Exam Radar & Proportional Reallocation Bar (Rule of Thirds Upper Focal Plane) -->
   <ExamRadar
     exams={store.snapshot?.upcomingExams || []}
     courses={store.snapshot?.courses || []}
     unwatchedLectures={store.snapshot?.unwatchedLectures || []}
   />
 
-  <!-- Effort Split Bar -->
   <EffortSplitBar
     allocation={store.snapshot?.allocation}
     courses={store.snapshot?.courses || []}
   />
 
-  <!-- Today's Classes & Shields -->
-  <section class="plan-section">
+  <!-- Today's Live Class Shields -->
+  <section class="plan-section surface-card leading-line" aria-label="Today's Live Classes">
     <div class="section-heading">
       <div class="heading-title">
-        <ShieldCheck size={18} strokeWidth={1.75} class="section-icon" />
+        <ShieldCheck size={16} strokeWidth={2} class="section-icon" />
         <h2>Today's Live Class Shields</h2>
       </div>
-      <button class="ghost mini-action-btn" onclick={() => store.openDisruptionModal()}>
-        <CalendarPlus size={14} strokeWidth={1.75} />
-        <span>Report Disruption / Makeup</span>
+      <button
+        type="button"
+        class="ghost mini-action-btn"
+        onclick={() => store.openDisruptionModal()}
+        title="Record schedule disruption (Online, Makeup, or Cancelled)"
+      >
+        <CalendarPlus size={13} strokeWidth={1.75} />
+        <span>Disruption / Makeup</span>
       </button>
     </div>
 
     {#if store.snapshot?.todayClasses?.length}
       <div class="classes-grid">
-        {#each store.snapshot.todayClasses as cls}
+        {#each store.snapshot.todayClasses as cls (cls.id)}
           {@const crs = getCourse(cls.course_id)}
           <div class="class-card {cls.status} {cls.is_crunch_deferred ? 'deferred' : ''}">
             <div class="card-left">
@@ -102,7 +107,7 @@
               </span>
               <div class="class-info">
                 <div class="class-title">
-                  {cls.title || `Lecture ${cls.lecture_number}`}
+                  {cls.notes || `Lecture ${cls.lecture_number ?? 1}`}
                   {#if cls.is_makeup}
                     <span class="tag tag-amber">Off-Day Makeup</span>
                   {/if}
@@ -118,21 +123,31 @@
 
             <div class="card-right">
               {#if cls.is_crunch_deferred}
-                <div class="deferral-pill" title="Unrelated lecture postponed to protect imminent exam">
-                  <ClockAlert size={13} strokeWidth={1.75} />
+                <div class="deferral-pill" title="Unrelated lecture postponed to protect imminent exam hours">
+                  <ClockAlert size={13} strokeWidth={2} />
                   <span>Exam Crunch Deferred</span>
                 </div>
-              {:else if cls.status === 'reviewed'}
+              {:else if cls.status === 'attended' || cls.is_reviewed}
                 <div class="shield-secured-badge">
-                  <CheckCircle2 size={14} strokeWidth={1.75} />
+                  <CheckCircle2 size={13} strokeWidth={2} />
                   <span>Shield Secured</span>
                 </div>
               {:else}
-                <button class="primary action-btn" onclick={() => launchPomodoroForClass(cls)}>
-                  <Play size={13} strokeWidth={1.75} />
+                <button
+                  type="button"
+                  class="primary action-btn"
+                  onclick={() => launchPomodoroForClass(cls)}
+                  title="Launch 25m focus review to lock in same-day retention"
+                >
+                  <Play size={12} strokeWidth={2} />
                   <span>Review Shield (25m)</span>
                 </button>
-                <button class="ghost action-btn" onclick={() => markClassReviewed(cls)}>
+                <button
+                  type="button"
+                  class="ghost action-btn"
+                  onclick={() => markClassReviewed(cls)}
+                  title="Mark reviewed directly"
+                >
                   Mark Done
                 </button>
               {/if}
@@ -142,37 +157,48 @@
       </div>
     {:else}
       <div class="empty-state">
-        <p>No live classes scheduled for today. Devote full effort to backlog recovery and exam prep.</p>
+        <p>No live classes scheduled for today. Devote your available daily blocks to exam revision and backlog recovery.</p>
       </div>
     {/if}
   </section>
 
-  <!-- Priority Backlog Recovery Queue Preview -->
-  <section class="plan-section">
+  <!-- High-Priority Backlog Recovery Preview -->
+  <section class="plan-section surface-card leading-line" aria-label="Priority Backlog Recovery">
     <div class="section-heading">
       <div class="heading-title">
-        <Flame size={18} strokeWidth={1.75} class="section-icon" />
+        <Flame size={16} strokeWidth={2} class="section-icon flame-icon" />
         <h2>High-Priority Backlog Recovery</h2>
       </div>
-      <button class="ghost mini-action-btn" onclick={() => store.setView('queue')}>
+      <button
+        type="button"
+        class="ghost mini-action-btn"
+        onclick={() => store.setView('queue')}
+        title="View Full Recovery Queue"
+      >
         <span>View Full Queue ({store.snapshot?.unwatchedLectures?.length || 0})</span>
+        <ArrowRight size={12} strokeWidth={2} />
       </button>
     </div>
 
     {#if store.snapshot?.unwatchedLectures?.length}
       <div class="backlog-preview-list">
-        {#each store.snapshot.unwatchedLectures.slice(0, 4) as lecture}
+        {#each store.snapshot.unwatchedLectures.slice(0, 4) as lecture (lecture.id)}
           {@const crs = getCourse(lecture.course_id)}
           <div class="backlog-row">
             <span class="course-badge" style="background: {crs.color || '#1A6B4E'}">
               {crs.code}
             </span>
             <div class="backlog-desc">
-              <span class="backlog-title">{lecture.title || `Class Lecture ${lecture.lecture_number}`}</span>
+              <span class="backlog-title">{lecture.notes || `Class Lecture ${lecture.lecture_number ?? 1}`}</span>
               <span class="backlog-date tabular-nums">{lecture.date}</span>
             </div>
-            <button class="primary action-btn" onclick={() => launchPomodoroForClass(lecture)}>
-              <Play size={13} strokeWidth={1.75} />
+            <button
+              type="button"
+              class="primary action-btn"
+              onclick={() => launchPomodoroForClass(lecture)}
+              title="Launch 25m recovery session"
+            >
+              <Play size={12} strokeWidth={2} />
               <span>Recover (25m)</span>
             </button>
           </div>
@@ -180,7 +206,7 @@
       </div>
     {:else}
       <div class="empty-state">
-        <p>Zero backlog debt! All semester lectures are reviewed and up to date.</p>
+        <p>Zero backlog debt. All semester lectures are reviewed and up to date.</p>
       </div>
     {/if}
   </section>
@@ -191,19 +217,22 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 16px;
+    gap: var(--grid-4);
     flex-wrap: wrap;
   }
 
   .header-left {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
   }
 
   .academic-date-label {
-    font-size: 13px;
+    font-size: var(--text-sm);
     color: var(--ink-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
 
   .font-mono {
@@ -211,39 +240,30 @@
     font-weight: 600;
   }
 
-  .finals-badge {
-    font-weight: 700;
-    color: var(--accent-amber);
-  }
-
   .quote-card {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-sm);
-    padding: 8px 12px;
+    padding: 8px 14px;
     max-width: 460px;
-    box-shadow: var(--shadow-sm);
+    font-size: 12px;
+    color: var(--ink-secondary);
   }
 
-  :global(.quote-sparkle) {
+  .quote-sparkle {
     color: var(--accent-amber);
     flex-shrink: 0;
   }
 
   .quote-text {
-    font-size: 12px;
     font-style: italic;
-    color: var(--ink-secondary);
     line-height: 1.4;
   }
 
   .plan-section {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: var(--grid-4);
   }
 
   .section-heading {
@@ -258,42 +278,45 @@
     gap: 8px;
   }
 
-  :global(.section-icon) {
+  .section-icon {
     color: var(--accent-emerald);
   }
 
+  .flame-icon {
+    color: var(--accent-amber);
+  }
+
   .mini-action-btn {
-    font-size: 12px;
+    font-size: 11.5px;
     padding: 4px 8px;
-    color: var(--ink-secondary);
+    gap: 5px;
   }
 
   .classes-grid {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--grid-2);
   }
 
   .class-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-sm);
-    padding: 12px 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 16px;
-    box-shadow: var(--shadow-sm);
+    padding: 10px 14px;
+    background: var(--bg-stage);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+  }
+
+  .class-card:hover {
+    border-color: var(--border-strong);
+    background: var(--bg-surface);
   }
 
   .class-card.deferred {
-    border-color: var(--accent-amber);
-    background: var(--accent-amber-subtle);
-  }
-
-  .class-card.reviewed {
-    opacity: 0.8;
-    background: var(--bg-subtle);
+    border-style: dashed;
+    background: color-mix(in srgb, var(--accent-amber-subtle) 30%, var(--bg-surface));
   }
 
   .card-left {
@@ -307,8 +330,9 @@
     font-size: 11px;
     font-weight: 700;
     color: #FFFFFF;
-    padding: 4px 8px;
+    padding: 3px 8px;
     border-radius: var(--radius-xs);
+    letter-spacing: 0.03em;
   }
 
   .class-info {
@@ -318,77 +342,86 @@
   }
 
   .class-title {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--ink-primary);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
   }
 
   .class-time {
-    font-size: 12px;
+    font-size: 11.5px;
     color: var(--ink-muted);
   }
 
   .card-right {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
   }
 
   .deferral-pill {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font-size: 11px;
+    gap: 5px;
+    font-size: 11.5px;
     font-weight: 600;
-    padding: 4px 8px;
-    border-radius: var(--radius-xs);
-    background: var(--bg-surface);
     color: var(--accent-amber-ink);
-    border: 1px solid var(--accent-amber);
+    background: var(--accent-amber-subtle);
+    border: 1px solid color-mix(in srgb, var(--accent-amber) 30%, transparent);
+    padding: 3px 9px;
+    border-radius: var(--radius-xs);
   }
 
   .shield-secured-badge {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font-size: 12px;
+    gap: 5px;
+    font-size: 11.5px;
     font-weight: 600;
     color: var(--accent-emerald-ink);
+    background: var(--accent-emerald-subtle);
+    border: 1px solid color-mix(in srgb, var(--accent-emerald) 30%, transparent);
+    padding: 3px 9px;
+    border-radius: var(--radius-xs);
   }
 
   .action-btn {
+    font-size: 11.5px;
     padding: 5px 10px;
-    font-size: 12px;
   }
 
   .backlog-preview-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--grid-2);
   }
 
   .backlog-row {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-sm);
-    padding: 10px 14px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 14px;
+    gap: 12px;
+    padding: 8px 12px;
+    background: var(--bg-stage);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+  }
+
+  .backlog-row:hover {
+    background: var(--bg-surface);
+    border-color: var(--border-strong);
   }
 
   .backlog-desc {
     flex: 1;
     display: flex;
     flex-direction: column;
+    gap: 2px;
   }
 
   .backlog-title {
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 600;
     color: var(--ink-primary);
   }
@@ -399,12 +432,12 @@
   }
 
   .empty-state {
-    background: var(--bg-surface);
-    border: 1px dashed var(--border-subtle);
-    border-radius: var(--radius-sm);
-    padding: 24px;
+    padding: var(--grid-6);
     text-align: center;
     color: var(--ink-muted);
-    font-size: 13px;
+    font-size: 12.5px;
+    background: var(--bg-stage);
+    border-radius: var(--radius-sm);
+    border: 1px dashed var(--border-subtle);
   }
 </style>

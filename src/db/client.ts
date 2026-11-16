@@ -1,3 +1,8 @@
+/**
+ * Orian Database Client
+ * 100% Strict TypeScript node:sqlite WAL initialization
+ */
+
 import { DatabaseSync } from 'node:sqlite';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -6,7 +11,7 @@ import fs from 'node:fs';
  * Creates and initializes a node:sqlite DatabaseSync instance
  * with WAL mode, foreign keys, and busy timeout.
  */
-export function createDatabase(dbPath) {
+export function createDatabase(dbPath: string): DatabaseSync {
   if (dbPath !== ':memory:') {
     const dir = path.dirname(dbPath);
     if (!fs.existsSync(dir)) {

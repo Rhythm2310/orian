@@ -1,14 +1,15 @@
 /**
  * Orian Procedural Audio Chimes via Web Audio API
  * 100% offline, zero external audio asset dependencies.
+ * 100% Strict TypeScript
  */
 
-let audioCtx = null;
+let audioCtx: AudioContext | null = null;
 
-function getAudioContext() {
+function getAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
   if (!audioCtx) {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (AudioContextClass) {
       audioCtx = new AudioContextClass();
     }
@@ -19,7 +20,7 @@ function getAudioContext() {
   return audioCtx;
 }
 
-export function playFocusStartChime(enabled = true) {
+export function playFocusStartChime(enabled = true): void {
   if (!enabled) return;
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -52,7 +53,7 @@ export function playFocusStartChime(enabled = true) {
   osc2.stop(now + 0.8);
 }
 
-export function playCompletionBell(enabled = true) {
+export function playCompletionBell(enabled = true): void {
   if (!enabled) return;
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -80,7 +81,7 @@ export function playCompletionBell(enabled = true) {
   });
 }
 
-export function playBreakBell(enabled = true) {
+export function playBreakBell(enabled = true): void {
   if (!enabled) return;
   const ctx = getAudioContext();
   if (!ctx) return;

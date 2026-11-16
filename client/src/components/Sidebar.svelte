@@ -1,6 +1,6 @@
-<script>
-  import { store } from '../lib/store.svelte.js';
-  import { api } from '../lib/api.js';
+<script lang="ts">
+  import { store, type ViewName } from '../lib/store.svelte.ts';
+  import { api } from '../lib/api.ts';
   import {
     LayoutDashboard,
     ListTodo,
@@ -11,17 +11,18 @@
     Pause,
     Square,
     Check,
-    BookMarked,
-    Plus
+    Plus,
+    Flame,
+    Zap
   } from '@lucide/svelte';
 
-  function formatTime(seconds) {
+  function formatTime(seconds: number): string {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
 
-  async function toggleTimer() {
+  async function toggleTimer(): Promise<void> {
     if (!store.activeTimer) {
       store.setView('pomodoro');
       return;
@@ -35,9 +36,9 @@
   }
 
   let confirmingStop = $state(false);
-  let stopTimeout = null;
+  let stopTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  async function stopTimer() {
+  async function stopTimer(): Promise<void> {
     if (!confirmingStop) {
       confirmingStop = true;
       if (stopTimeout) clearTimeout(stopTimeout);
@@ -52,26 +53,36 @@
     await store.refreshSnapshot();
     store.showToast('Pomodoro focus block completed.');
   }
+
+  const activeProgress = $derived.by(() => {
+    if (!store.activeTimer) return 0;
+    const target = store.activeTimer.target_duration_seconds || 1500;
+    const remaining = store.activeTimer.remainingSeconds ?? 0;
+    const elapsed = Math.max(0, target - remaining);
+    return Math.min(1, elapsed / target);
+  });
 </script>
 
-<aside class="left-rail">
+<aside class="left-rail" aria-label="Workbench Sidebar">
   <div class="rail-top">
     <!-- Main Route Navigation -->
     <nav class="nav-links" aria-label="Main Navigation">
       <button
+        type="button"
         class="nav-item {store.currentView === 'dashboard' ? 'active' : ''}"
         onclick={() => store.setView('dashboard')}
       >
-        <LayoutDashboard size={16} strokeWidth={1.75} />
-        <span>Today's Plan</span>
+        <LayoutDashboard size={15} strokeWidth={1.75} />
+        <span class="nav-label">Today's Plan</span>
       </button>
 
       <button
+        type="button"
         class="nav-item {store.currentView === 'queue' ? 'active' : ''}"
         onclick={() => store.setView('queue')}
       >
-        <ListTodo size={16} strokeWidth={1.75} />
-        <span>Recovery Queue</span>
+        <ListTodo size={15} strokeWidth={1.75} />
+        <span class="nav-label">Recovery Queue</span>
         {#if store.snapshot?.unwatchedLectures?.length}
           <span class="count-badge tabular-nums">
             {store.snapshot.unwatchedLectures.length}
@@ -80,105 +91,148 @@
       </button>
 
       <button
+        type="button"
         class="nav-item {store.currentView === 'routine' ? 'active' : ''}"
         onclick={() => store.setView('routine')}
       >
-        <CalendarDays size={16} strokeWidth={1.75} />
-        <span>Routine & Exams</span>
+        <CalendarDays size={15} strokeWidth={1.75} />
+        <span class="nav-label">Routine & Exams</span>
         {#if store.snapshot?.upcomingExams?.length}
-          <span class="exam-dot" title="Upcoming Exams"></span>
+          <span class="exam-dot" title="Upcoming Exams Active"></span>
         {/if}
       </button>
 
       <button
+        type="button"
         class="nav-item {store.currentView === 'pomodoro' ? 'active' : ''}"
         onclick={() => store.setView('pomodoro')}
       >
-        <Timer size={16} strokeWidth={1.75} />
-        <span>Pomodoro Focus</span>
+        <Timer size={15} strokeWidth={1.75} />
+        <span class="nav-label">Pomodoro Focus</span>
       </button>
 
       <button
+        type="button"
         class="nav-item {store.currentView === 'settings' ? 'active' : ''}"
         onclick={() => store.setView('settings')}
       >
-        <Settings size={16} strokeWidth={1.75} />
-        <span>Settings & A11y</span>
+        <Settings size={15} strokeWidth={1.75} />
+        <span class="nav-label">Settings & A11y</span>
       </button>
     </nav>
 
-    <!-- Enrolled Courses Section -->
+    <!-- Finals Mode Banner in Rail -->
+    {#if store.snapshot?.settings?.finals_prep_mode}
+      <div class="finals-banner">
+        <Flame size={13} strokeWidth={2} class="flame-icon" />
+        <div class="finals-text">
+          <span class="finals-title">Finals Mode</span>
+          <span class="finals-desc">100% capacity to exams</span>
+        </div>
+      </div>
+    {/if}
+
+    <!-- Enrolled Courses Section with Effort Multipliers -->
     <div class="rail-section">
       <div class="section-header">
-        <span class="section-title">Courses</span>
+        <span class="section-title">Enrolled Courses</span>
         <button
+          type="button"
           class="ghost mini-add-btn"
           onclick={() => store.setView('routine')}
-          title="Manage Courses"
+          title="Add / Manage Courses"
+          aria-label="Add / Manage Courses"
         >
-          <Plus size={14} strokeWidth={1.75} />
+          <Plus size={13} strokeWidth={1.75} />
         </button>
       </div>
 
       <div class="course-list">
         {#if store.snapshot?.courses?.length}
-          {#each store.snapshot.courses as course}
-            <div class="course-item">
+          {#each store.snapshot.courses as course (course.id)}
+            <div class="course-item" title="{course.code} — {course.name}">
               <span class="course-color" style="background: {course.color || '#1A6B4E'}"></span>
               <span class="course-code">{course.code}</span>
-              {#if course.effort_multiplier > 1.0}
-                <span class="multiplier-pill">{course.effort_multiplier}x</span>
+              {#if course.effort_multiplier && course.effort_multiplier > 1.0}
+                <span class="multiplier-pill" title="Active Focus Boost: {course.effort_multiplier}x">
+                  <Zap size={9} strokeWidth={2} />
+                  {course.effort_multiplier}x
+                </span>
               {/if}
             </div>
           {/each}
         {:else}
-          <div class="empty-hint">No courses yet</div>
+          <div class="empty-hint">No courses added yet</div>
         {/if}
       </div>
     </div>
   </div>
 
-  <!-- Pinned Mini Pomodoro Dock -->
+  <!-- Pinned Mini Pomodoro Dock (Golden Ratio Bottom Anchor) -->
   <div class="rail-bottom">
     {#if store.activeTimer}
       <div class="mini-timer-card {store.activeTimer.status}">
-        <div class="mini-timer-header">
-          <span class="mini-timer-mode">
-            {store.activeTimer.session_mode === 'exam_prep' ? 'Exam Prep' : 'Focus Block'}
-          </span>
-          <span class="mini-timer-digits tabular-nums">
-            {formatTime(store.activeTimer.remainingSeconds || 0)}
-          </span>
+        <div class="mini-timer-left">
+          <!-- Miniature Ring -->
+          <svg class="mini-ring" viewBox="0 0 32 32">
+            <circle class="ring-bg" cx="16" cy="16" r="13" />
+            <circle
+              class="ring-progress"
+              cx="16"
+              cy="16"
+              r="13"
+              stroke-dasharray={2 * Math.PI * 13}
+              stroke-dashoffset={2 * Math.PI * 13 * (1 - activeProgress)}
+            />
+          </svg>
+          <div class="mini-timer-info">
+            <span class="mini-timer-mode">
+              {store.activeTimer.mode === 'exam_revision' ? 'Exam Prep' : 'Focus Session'}
+            </span>
+            <span class="mini-timer-digits tabular-nums">
+              {formatTime(store.activeTimer.remainingSeconds || 0)}
+            </span>
+          </div>
         </div>
 
         <div class="mini-timer-actions">
-          <button class="primary mini-btn" onclick={toggleTimer} title="Pause or Resume">
+          <button
+            type="button"
+            class="primary mini-btn"
+            onclick={toggleTimer}
+            title={store.activeTimer.status === 'running' ? 'Pause focus block' : 'Resume focus block'}
+            aria-label={store.activeTimer.status === 'running' ? 'Pause' : 'Resume'}
+          >
             {#if store.activeTimer.status === 'running'}
-              <Pause size={13} strokeWidth={1.75} />
+              <Pause size={12} strokeWidth={2} />
             {:else}
-              <Play size={13} strokeWidth={1.75} />
+              <Play size={12} strokeWidth={2} />
             {/if}
           </button>
           <button
+            type="button"
             class="ghost mini-btn {confirmingStop ? 'confirming-active' : ''}"
             onclick={stopTimer}
-            title={confirmingStop ? 'Click again to confirm completion' : 'Complete Block'}
+            title={confirmingStop ? 'Click again to confirm finish' : 'Complete Block'}
+            aria-label={confirmingStop ? 'Confirm finish' : 'Complete Block'}
           >
             {#if confirmingStop}
-              <Check size={13} strokeWidth={2} />
+              <Check size={12} strokeWidth={2.2} />
             {:else}
-              <Square size={13} strokeWidth={1.75} />
+              <Square size={12} strokeWidth={2} />
             {/if}
           </button>
         </div>
       </div>
     {:else}
       <button
+        type="button"
         class="quick-focus-btn"
         onclick={() => store.setView('pomodoro')}
+        title="Launch Pomodoro Studio"
       >
-        <Play size={14} strokeWidth={1.75} />
-        <span>Start 25m Focus Block</span>
+        <Play size={13} strokeWidth={2} />
+        <span>Focus Studio</span>
       </button>
     {/if}
   </div>
@@ -188,28 +242,29 @@
   .rail-top {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: var(--grid-4);
   }
 
   .nav-links {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
   }
 
   .nav-item {
-    width: 100%;
     display: flex;
     align-items: center;
-    justify-content: flex-start;
     gap: 10px;
-    padding: 8px 10px;
+    padding: 8px 11px;
     border-radius: var(--radius-sm);
-    background: transparent;
     border: 1px solid transparent;
+    background: transparent;
     color: var(--ink-secondary);
     font-size: 13px;
     font-weight: 500;
+    text-align: left;
+    width: 100%;
+    position: relative;
     transition: all var(--transition-fast);
   }
 
@@ -220,36 +275,82 @@
 
   .nav-item.active {
     background: var(--bg-surface);
-    color: var(--ink-primary);
+    color: var(--accent-emerald-ink);
     border-color: var(--border-subtle);
     box-shadow: var(--shadow-sm);
     font-weight: 600;
   }
 
+  .nav-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 3px;
+    border-radius: 0 var(--radius-full) var(--radius-full) 0;
+    background: var(--accent-emerald);
+  }
+
+  .nav-label {
+    flex: 1;
+  }
+
   .count-badge {
-    margin-left: auto;
-    font-size: 11px;
-    padding: 1px 6px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1.5px 6px;
     border-radius: var(--radius-full);
     background: var(--accent-amber-subtle);
     color: var(--accent-amber-ink);
-    border: 1px solid var(--accent-amber);
-    font-weight: 600;
+    border: 1px solid color-mix(in srgb, var(--accent-amber) 30%, transparent);
   }
 
   .exam-dot {
-    margin-left: auto;
     width: 6px;
     height: 6px;
     border-radius: var(--radius-full);
     background: var(--accent-crimson);
   }
 
+  .finals-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    background: var(--accent-amber-subtle);
+    border: 1px solid color-mix(in srgb, var(--accent-amber) 30%, transparent);
+    border-radius: var(--radius-sm);
+  }
+
+  .finals-banner :global(.flame-icon) {
+    color: var(--accent-amber);
+  }
+
+  .finals-text {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .finals-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent-amber-ink);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .finals-desc {
+    font-size: 10px;
+    color: var(--ink-muted);
+  }
+
   .rail-section {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding-top: 8px;
+    gap: 6px;
+    padding-top: var(--grid-2);
     border-top: 1px solid var(--border-subtle);
   }
 
@@ -261,130 +362,177 @@
   }
 
   .section-title {
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     color: var(--ink-muted);
   }
 
   .mini-add-btn {
-    padding: 2px 4px;
+    padding: 2px;
+    min-width: 20px;
+    min-height: 20px;
     border-radius: var(--radius-xs);
-    color: var(--ink-muted);
   }
 
   .course-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
   }
 
   .course-item {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 4px 6px;
+    padding: 5px 8px;
     border-radius: var(--radius-xs);
     font-size: 12px;
+    color: var(--ink-secondary);
+  }
+
+  .course-item:hover {
+    background: var(--bg-hover);
     color: var(--ink-primary);
   }
 
   .course-color {
-    width: 8px;
-    height: 8px;
-    border-radius: 2px;
+    width: 6px;
+    height: 6px;
+    border-radius: var(--radius-full);
   }
 
   .course-code {
     font-family: var(--font-mono);
-    font-weight: 500;
+    font-size: 11.5px;
+    font-weight: 600;
+    flex: 1;
   }
 
   .multiplier-pill {
-    margin-left: auto;
-    font-size: 10px;
-    font-weight: 600;
-    background: var(--accent-emerald-subtle);
-    color: var(--accent-emerald-ink);
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 9.5px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    background: var(--accent-amber-subtle);
+    color: var(--accent-amber-ink);
+    border: 1px solid color-mix(in srgb, var(--accent-amber) 30%, transparent);
     padding: 1px 4px;
     border-radius: 3px;
   }
 
   .empty-hint {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--ink-muted);
-    padding: 4px;
+    font-style: italic;
+    padding: 4px 8px;
   }
 
+  /* Rail Bottom: Mini Pomodoro Dock */
   .rail-bottom {
-    padding-top: 12px;
+    padding-top: var(--grid-3);
     border-top: 1px solid var(--border-subtle);
   }
 
   .mini-timer-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
     background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-sm);
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    border-radius: var(--radius-md);
     box-shadow: var(--shadow-sm);
   }
 
-  .mini-timer-card.running {
-    border-color: var(--accent-emerald);
+  .mini-timer-card.paused {
+    opacity: 0.85;
+    border-style: dashed;
   }
 
-  .mini-timer-header {
+  .mini-timer-left {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: 8px;
+  }
+
+  .mini-ring {
+    width: 28px;
+    height: 28px;
+    transform: rotate(-90deg);
+  }
+
+  .ring-bg {
+    fill: none;
+    stroke: var(--border-subtle);
+    stroke-width: 3;
+  }
+
+  .ring-progress {
+    fill: none;
+    stroke: var(--accent-emerald);
+    stroke-width: 3;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 300ms ease;
+  }
+
+  .mini-timer-info {
+    display: flex;
+    flex-direction: column;
   }
 
   .mini-timer-mode {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
+    color: var(--ink-muted);
     text-transform: uppercase;
-    color: var(--ink-secondary);
+    letter-spacing: 0.03em;
   }
 
   .mini-timer-digits {
     font-family: var(--font-mono);
-    font-size: 15px;
+    font-size: 13.5px;
     font-weight: 700;
-    color: var(--accent-emerald);
+    color: var(--ink-primary);
   }
 
   .mini-timer-actions {
     display: flex;
-    gap: 6px;
+    align-items: center;
+    gap: 4px;
   }
 
   .mini-btn {
-    flex: 1;
-    padding: 4px;
+    padding: 5px;
+    min-width: 26px;
+    min-height: 26px;
+    border-radius: var(--radius-xs);
   }
 
-  .mini-btn.confirming-active {
-    background: var(--accent-amber-subtle);
-    border-color: var(--accent-amber);
-    color: var(--accent-amber-ink);
+  .confirming-active {
+    background: var(--accent-crimson) !important;
+    color: #FFFFFF !important;
+    border-color: var(--accent-crimson) !important;
   }
 
   .quick-focus-btn {
     width: 100%;
-    padding: 8px 10px;
-    font-size: 12px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
     background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     color: var(--ink-primary);
-    justify-content: center;
+    font-size: 12.5px;
+    font-weight: 600;
+    gap: 8px;
   }
 
   .quick-focus-btn:hover {
     background: var(--bg-subtle);
-    border-color: var(--border-strong);
+    border-color: var(--accent-emerald);
+    color: var(--accent-emerald-ink);
   }
 </style>

@@ -1,12 +1,12 @@
-<script>
+<script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { store } from '../lib/store.svelte.js';
-  import { api } from '../lib/api.js';
+  import { store } from '../lib/store.svelte.ts';
+  import { api } from '../lib/api.ts';
   import {
     playFocusStartChime,
     playCompletionBell,
     playBreakBell
-  } from '../lib/audio.js';
+  } from '../lib/audio.ts';
   import {
     Play,
     Pause,
@@ -15,18 +15,22 @@
     Sparkles,
     GraduationCap,
     BookOpen,
-    CheckCircle2
+    CheckCircle2,
+    Volume2,
+    VolumeX,
+    Flame
   } from '@lucide/svelte';
+  import type { PomodoroMode, Course, Assessment } from '../lib/types.ts';
 
-  let timerInterval = null;
-  let sessionNotes = $state('');
-  let selectedMode = $state('focus'); // 'focus' | 'exam_prep' | 'recovery'
-  let selectedCourseId = $state('');
-  let customDurationMinutes = $state(25);
+  let timerInterval: ReturnType<typeof setInterval> | null = null;
+  let sessionNotes = $state<string>('');
+  let selectedMode = $state<PomodoroMode>('free_focus');
+  let selectedCourseId = $state<string>('');
+  let customDurationMinutes = $state<number>(25);
 
-  let active = $derived(store.activeTimer);
+  const active = $derived(store.activeTimer);
 
-  function formatTime(totalSeconds) {
+  function formatTime(totalSeconds: number): string {
     const s = Math.max(0, Math.floor(totalSeconds));
     const m = Math.floor(s / 60);
     const rem = s % 60;
@@ -55,7 +59,7 @@
     if (timerInterval) clearInterval(timerInterval);
   });
 
-  async function handleAutoCompletion() {
+  async function handleAutoCompletion(): Promise<void> {
     playCompletionBell(store.chimesEnabled);
     await api.completePomodoro({ notes: sessionNotes });
     store.showToast('Pomodoro focus block completed! Take a 5m break.');
@@ -63,29 +67,27 @@
     await store.refreshSnapshot();
   }
 
-  async function startTimer() {
+  async function startTimer(): Promise<void> {
     playFocusStartChime(store.chimesEnabled);
-    const targetSeconds = customDurationMinutes * 60;
     await api.startPomodoro({
       course_id: selectedCourseId || (store.snapshot?.courses?.[0]?.id || null),
-      session_mode: selectedMode,
-      target_duration_seconds: targetSeconds,
-      notes: sessionNotes
+      mode: selectedMode,
+      durationMinutes: customDurationMinutes
     });
     await store.refreshSnapshot();
   }
 
-  async function pauseTimer() {
+  async function pauseTimer(): Promise<void> {
     await api.pausePomodoro();
     await store.refreshSnapshot();
   }
 
-  async function resumeTimer() {
+  async function resumeTimer(): Promise<void> {
     await api.resumePomodoro();
     await store.refreshSnapshot();
   }
 
-  async function completeTimer() {
+  async function completeTimer(): Promise<void> {
     playCompletionBell(store.chimesEnabled);
     await api.completePomodoro({ notes: sessionNotes });
     store.showToast('Block recorded successfully.');
@@ -93,10 +95,10 @@
     await store.refreshSnapshot();
   }
 
-  let confirmingDiscard = $state(false);
-  let discardTimeout = null;
+  let confirmingDiscard = $state<boolean>(false);
+  let discardTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  async function cancelTimer() {
+  async function cancelTimer(): Promise<void> {
     if (!confirmingDiscard) {
       confirmingDiscard = true;
       if (discardTimeout) clearTimeout(discardTimeout);
@@ -108,332 +110,477 @@
     confirmingDiscard = false;
     if (discardTimeout) clearTimeout(discardTimeout);
     await api.cancelPomodoro();
-    store.showToast('Timer reset.');
+    store.showToast('Session cancelled.');
     await store.refreshSnapshot();
   }
 
-  function getCourse(courseId) {
-    return (store.snapshot?.courses || []).find(c => c.id === courseId) || { code: courseId || 'Focus', color: '#1A6B4E' };
+  const ringRadius = 108;
+  const circumference = 2 * Math.PI * ringRadius;
+
+  const progress = $derived.by(() => {
+    if (!active) return 0;
+    const target = active.target_duration_seconds || 1500;
+    const remaining = active.remainingSeconds ?? 0;
+    const elapsed = Math.max(0, target - remaining);
+    return Math.min(1, elapsed / target);
+  });
+
+  function getActiveCourse(): Pick<Course, 'code' | 'name' | 'color'> | null {
+    if (!active || !active.course_id) return null;
+    const found = (store.snapshot?.courses || []).find(c => c.id === active.course_id);
+    return found ? { code: found.code, name: found.name, color: found.color } : null;
   }
 </script>
 
-<div class="stage-content">
-  <div class="studio-header">
-    <div>
-      <h1>Pomodoro Focus Studio</h1>
-      <p>Deliberate single-task execution. Wall-clock resilient across sleep, suspension, and restarts.</p>
-    </div>
-  </div>
+<div class="stage-content focus-studio-stage">
+  <!-- Focal Focus Stage (Golden Spiral Center) -->
+  <div class="focus-arena">
+    <!-- Focal SVG Progress Ring (1500 DPI Subpixel Crisp Anti-Aliasing) -->
+    <div class="ring-container">
+      <svg class="progress-ring-svg" viewBox="0 0 240 240" aria-hidden="true">
+        <circle
+          class="ring-track"
+          cx="120"
+          cy="120"
+          r={ringRadius}
+        />
+        <circle
+          class="ring-fill"
+          cx="120"
+          cy="120"
+          r={ringRadius}
+          stroke-dasharray={circumference}
+          stroke-dashoffset={circumference * (1 - progress)}
+        />
+      </svg>
 
-  <div class="studio-layout">
-    <!-- Center Focus Dial -->
-    <div class="focus-dial-card">
-      <div class="dial-container">
-        <!-- SVG Progress Ring -->
-        <svg class="progress-ring" viewBox="0 0 240 240">
-          <circle
-            class="ring-bg"
-            cx="120"
-            cy="120"
-            r="105"
-            stroke-width="8"
-          />
-          <circle
-            class="ring-indicator"
-            cx="120"
-            cy="120"
-            r="105"
-            stroke-width="8"
-            style="stroke-dasharray: 660; stroke-dashoffset: {
-              active
-                ? 660 * (1 - (active.remainingSeconds / (active.target_duration_seconds || 1500)))
-                : 0
-            }"
-          />
-        </svg>
-
-        <div class="dial-center">
-          <span class="mode-tag">
-            {active ? (active.session_mode === 'exam_prep' ? 'Exam Revision' : 'Focus Session') : 'Ready to Start'}
-          </span>
-          <span class="time-display tabular-nums">
-            {active ? formatTime(active.remainingSeconds) : `${customDurationMinutes}:00`}
-          </span>
-          {#if active?.course_id}
-            {@const crs = getCourse(active.course_id)}
-            <span class="active-course-tag" style="color: {crs.color || '#1A6B4E'}">
-              {crs.code}
+      <!-- Center Clock Display (Tabular Numerics) -->
+      <div class="timer-center-content">
+        {#if active}
+          <div class="active-badge-row">
+            {#if getActiveCourse()}
+              {@const crs = getActiveCourse()!}
+              <span class="course-pill font-mono" style="background: {crs.color || '#1A6B4E'};">
+                {crs.code}
+              </span>
+            {/if}
+            <span class="mode-tag tag tag-emerald">
+              {active.mode === 'exam_revision' ? 'Exam Revision' : active.mode === 'lecture_recovery' ? 'Lecture Recovery' : 'Deep Focus'}
             </span>
-          {/if}
-        </div>
-      </div>
+          </div>
 
-      <!-- Controls -->
-      <div class="dial-controls">
-        {#if !active}
-          <button class="primary launch-btn" onclick={startTimer}>
-            <Play size={18} strokeWidth={1.75} />
-            <span>Begin {customDurationMinutes}m Focus Block</span>
-          </button>
-        {:else if active.status === 'running'}
-          <button class="ghost control-btn" onclick={pauseTimer} title="Pause">
-            <Pause size={18} strokeWidth={1.75} />
-            <span>Pause</span>
-          </button>
-          <button class="primary control-btn" onclick={completeTimer} title="Complete">
-            <CheckCircle2 size={18} strokeWidth={1.75} />
-            <span>Complete</span>
-          </button>
-          <button
-            class="ghost control-btn danger {confirmingDiscard ? 'confirming-active' : ''}"
-            onclick={cancelTimer}
-            title={confirmingDiscard ? 'Click again to discard timer' : 'Discard'}
-          >
-            {#if confirmingDiscard}
-              <span>Confirm Discard?</span>
+          <div class="timer-clock-digits tabular-nums">
+            {formatTime(active.remainingSeconds ?? active.target_duration_seconds)}
+          </div>
+
+          <div class="timer-state-label">
+            {#if active.status === 'running'}
+              <span class="pulse-indicator"></span> Focus block running
+            {:else if active.status === 'paused'}
+              <span class="paused-indicator"></span> Timer paused (Press Space to resume)
             {:else}
-              <Square size={18} strokeWidth={1.75} />
+              Block ready
             {/if}
-          </button>
-        {:else if active.status === 'paused'}
-          <button class="primary control-btn" onclick={resumeTimer} title="Resume">
-            <Play size={18} strokeWidth={1.75} />
-            <span>Resume</span>
-          </button>
-          <button class="ghost control-btn" onclick={completeTimer} title="Complete">
-            <CheckCircle2 size={18} strokeWidth={1.75} />
-            <span>Complete</span>
-          </button>
-          <button
-            class="ghost control-btn danger {confirmingDiscard ? 'confirming-active' : ''}"
-            onclick={cancelTimer}
-            title={confirmingDiscard ? 'Click again to discard timer' : 'Discard'}
-          >
-            {#if confirmingDiscard}
-              <span>Confirm Discard?</span>
-            {:else}
-              <Square size={18} strokeWidth={1.75} />
-            {/if}
-          </button>
+          </div>
+        {:else}
+          <div class="idle-clock tabular-nums">
+            {String(customDurationMinutes).padStart(2, '0')}:00
+          </div>
+          <div class="idle-label">Ready to Focus</div>
         {/if}
       </div>
     </div>
 
-    <!-- Right Configuration & Notes Panel -->
-    <div class="studio-side-panel">
-      {#if !active}
-        <div class="side-card">
-          <h3>Session Setup</h3>
+    <!-- Timer Primary Control Buttons -->
+    <div class="timer-controls-row">
+      {#if active}
+        {#if active.status === 'running'}
+          <button
+            type="button"
+            class="control-btn ghost-control"
+            onclick={pauseTimer}
+            title="Pause timer (Space)"
+            aria-label="Pause timer"
+          >
+            <Pause size={18} strokeWidth={2} />
+            <span>Pause</span>
+          </button>
+        {:else}
+          <button
+            type="button"
+            class="control-btn primary-control"
+            onclick={resumeTimer}
+            title="Resume focus timer (Space)"
+            aria-label="Resume timer"
+          >
+            <Play size={18} strokeWidth={2} />
+            <span>Resume</span>
+          </button>
+        {/if}
 
-          <div class="form-group">
-            <label for="pomo-mode">Session Mode</label>
-            <select id="pomo-mode" bind:value={selectedMode}>
-              <option value="focus">Regular Focus Block</option>
-              <option value="exam_prep">Exam Prep & Revision</option>
-              <option value="recovery">Backlog Lecture Recovery</option>
-            </select>
+        <button
+          type="button"
+          class="control-btn primary-control"
+          onclick={completeTimer}
+          title="Complete and log this focus block"
+          aria-label="Complete focus block"
+        >
+          <CheckCircle2 size={18} strokeWidth={2} />
+          <span>Finish Block</span>
+        </button>
+
+        <button
+          type="button"
+          class="control-btn discard-control {confirmingDiscard ? 'confirming' : ''}"
+          onclick={cancelTimer}
+          title={confirmingDiscard ? 'Click again to confirm discard' : 'Discard session'}
+          aria-label="Discard session"
+        >
+          <RotateCcw size={16} strokeWidth={1.75} />
+          <span>{confirmingDiscard ? 'Confirm Discard' : 'Discard'}</span>
+        </button>
+      {:else}
+        <button
+          type="button"
+          class="control-btn primary-control launch-btn"
+          onclick={startTimer}
+          title="Start 25m Focus Block"
+        >
+          <Play size={18} strokeWidth={2.2} />
+          <span>Start Focus Block</span>
+        </button>
+      {/if}
+    </div>
+
+    <!-- Active Timer Notes -->
+    {#if active}
+      <div class="session-notes-box surface-card">
+        <label for="pomo-notes" class="notes-label">Session Notes / Task Focus</label>
+        <input
+          id="pomo-notes"
+          type="text"
+          placeholder="e.g. Practicing MATH204 CT 2 questions 1-5..."
+          bind:value={sessionNotes}
+        />
+      </div>
+    {/if}
+
+    <!-- Setup Options When Idle -->
+    {#if !active}
+      <div class="idle-config-card surface-card leading-line">
+        <div class="config-grid">
+          <div class="config-col">
+            <span class="col-title">Focus Mode</span>
+            <div class="mode-pills">
+              <button
+                type="button"
+                class="mode-btn {selectedMode === 'free_focus' ? 'active' : ''}"
+                onclick={() => selectedMode = 'free_focus'}
+              >
+                <Sparkles size={13} strokeWidth={2} />
+                <span>Free Focus</span>
+              </button>
+              <button
+                type="button"
+                class="mode-btn {selectedMode === 'exam_revision' ? 'active' : ''}"
+                onclick={() => selectedMode = 'exam_revision'}
+              >
+                <GraduationCap size={13} strokeWidth={2} />
+                <span>Exam Prep</span>
+              </button>
+              <button
+                type="button"
+                class="mode-btn {selectedMode === 'lecture_recovery' ? 'active' : ''}"
+                onclick={() => selectedMode = 'lecture_recovery'}
+              >
+                <BookOpen size={13} strokeWidth={2} />
+                <span>Lecture Recovery</span>
+              </button>
+            </div>
           </div>
 
-          <div class="form-group">
-            <label for="pomo-course">Bound Course</label>
-            <select id="pomo-course" bind:value={selectedCourseId}>
-              {#each store.snapshot?.courses || [] as crs}
+          <div class="config-col">
+            <span class="col-title">Target Course</span>
+            <select bind:value={selectedCourseId} aria-label="Select Target Course">
+              <option value="">General Focus (No Course)</option>
+              {#each store.snapshot?.courses || [] as crs (crs.id)}
                 <option value={crs.id}>{crs.code} — {crs.name}</option>
               {/each}
             </select>
           </div>
 
-          <div class="form-group">
-            <label for="pomo-dur">Block Duration</label>
+          <div class="config-col">
+            <span class="col-title">Duration</span>
             <div class="duration-pills">
-              {#each [15, 25, 45, 50] as dur}
+              {#each [15, 25, 45, 60] as mins}
                 <button
                   type="button"
-                  class="dur-pill {customDurationMinutes === dur ? 'active' : ''}"
-                  onclick={() => customDurationMinutes = dur}
+                  class="dur-pill {customDurationMinutes === mins ? 'active' : ''}"
+                  onclick={() => customDurationMinutes = mins}
                 >
-                  {dur}m
+                  {mins}m
                 </button>
               {/each}
             </div>
           </div>
         </div>
-      {/if}
-
-      <!-- Session Notes -->
-      <div class="side-card">
-        <h3>Session Notes & Deliverable</h3>
-        <textarea
-          rows="4"
-          placeholder="What specific problem, derivation, or lecture chunk are you solving in this block?"
-          bind:value={sessionNotes}
-        ></textarea>
       </div>
-
-      <!-- Quote -->
-      {#if store.snapshot?.quote}
-        <div class="side-quote-card">
-          <Sparkles size={16} strokeWidth={1.75} class="quote-sparkle" />
-          <p class="quote-text">"{store.snapshot.quote.text}"</p>
-        </div>
-      {/if}
-    </div>
+    {/if}
   </div>
 </div>
 
 <style>
-  .studio-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .studio-layout {
-    display: grid;
-    grid-template-columns: 1.2fr 0.8fr;
-    gap: 24px;
-    align-items: start;
-  }
-
-  .focus-dial-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
-    padding: 36px 24px;
+  .focus-studio-stage {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 28px;
-    box-shadow: var(--shadow-sm);
+    padding-top: var(--grid-6);
   }
 
-  .dial-container {
+  .focus-arena {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--grid-6);
+    max-width: 580px;
+    width: 100%;
+  }
+
+  /* Ring Container & Clock Display */
+  .ring-container {
     position: relative;
-    width: 240px;
-    height: 240px;
+    width: 250px;
+    height: 250px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  .progress-ring {
+  .progress-ring-svg {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     transform: rotate(-90deg);
   }
 
-  .ring-bg {
+  .ring-track {
     fill: none;
     stroke: var(--bg-subtle);
+    stroke-width: 6;
   }
 
-  .ring-indicator {
+  .ring-fill {
     fill: none;
     stroke: var(--accent-emerald);
+    stroke-width: 6;
     stroke-linecap: round;
-    transition: stroke-dashoffset 0.8s ease;
+    transition: stroke-dashoffset 400ms ease;
   }
 
-  .dial-center {
-    position: absolute;
-    inset: 0;
+  .timer-center-content {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    gap: 4px;
+    z-index: 10;
+  }
+
+  .active-badge-row {
+    display: flex;
+    align-items: center;
     gap: 6px;
   }
 
-  .mode-tag {
+  .course-pill {
+    color: #FFFFFF;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: var(--radius-xs);
+  }
+
+  .timer-clock-digits {
+    font-family: var(--font-mono);
+    font-size: 42px;
+    font-weight: 700;
+    color: var(--ink-primary);
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  .timer-state-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     font-size: 11px;
+    color: var(--ink-muted);
+  }
+
+  .pulse-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: var(--radius-full);
+    background: var(--accent-emerald);
+    box-shadow: 0 0 0 2px var(--accent-emerald-subtle);
+  }
+
+  .paused-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: var(--radius-full);
+    background: var(--accent-amber);
+  }
+
+  .idle-clock {
+    font-family: var(--font-mono);
+    font-size: 40px;
+    font-weight: 700;
+    color: var(--ink-muted);
+    line-height: 1;
+  }
+
+  .idle-label {
+    font-size: 12px;
+    color: var(--ink-muted);
+    font-weight: 500;
+  }
+
+  /* Control Buttons */
+  .timer-controls-row {
+    display: flex;
+    align-items: center;
+    gap: var(--grid-3);
+  }
+
+  .control-btn {
+    padding: 9px 18px;
+    font-size: 13.5px;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    gap: 8px;
+  }
+
+  .primary-control {
+    background: var(--accent-emerald);
+    color: #FFFFFF;
+    border-color: var(--accent-emerald);
+  }
+
+  .primary-control:hover {
+    background: #14553E;
+    border-color: #14553E;
+  }
+
+  .ghost-control {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    color: var(--ink-primary);
+  }
+
+  .discard-control {
+    background: transparent;
+    border-color: transparent;
+    color: var(--ink-muted);
+  }
+
+  .discard-control:hover {
+    background: var(--bg-hover);
+    color: var(--accent-crimson);
+  }
+
+  .discard-control.confirming {
+    background: var(--accent-crimson) !important;
+    color: #FFFFFF !important;
+  }
+
+  .launch-btn {
+    padding: 11px 28px;
+    font-size: 15px;
+    border-radius: var(--radius-md);
+  }
+
+  /* Notes & Setup Cards */
+  .session-notes-box {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: var(--grid-3) var(--grid-4);
+  }
+
+  .notes-label {
+    font-size: 10.5px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--ink-muted);
   }
 
-  .time-display {
-    font-family: var(--font-mono);
-    font-size: 42px;
-    font-weight: 700;
-    color: var(--ink-primary);
-    line-height: 1;
-  }
-
-  .active-course-tag {
-    font-family: var(--font-mono);
-    font-size: 13px;
-    font-weight: 700;
-  }
-
-  .dial-controls {
-    display: flex;
-    gap: 12px;
+  .idle-config-card {
     width: 100%;
-    max-width: 320px;
+    padding: var(--grid-4);
   }
 
-  .launch-btn {
-    width: 100%;
-    padding: 12px;
-    font-size: 14px;
-    border-radius: var(--radius-sm);
+  .config-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--grid-4);
   }
 
-  .control-btn {
-    flex: 1;
-    padding: 10px;
-  }
-
-  .control-btn.danger.confirming-active {
-    background: var(--accent-crimson-subtle);
-    border-color: var(--accent-crimson);
-    color: var(--accent-crimson-ink);
-    font-size: 11px;
-    font-weight: 700;
-  }
-
-  .studio-side-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .side-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-sm);
-    padding: 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    box-shadow: var(--shadow-sm);
-  }
-
-  .side-card h3 {
-    font-size: 14px;
-    font-weight: 600;
-  }
-
-  .form-group {
+  .config-col {
     display: flex;
     flex-direction: column;
     gap: 6px;
   }
 
-  .form-group label {
-    font-size: 12px;
+  .col-title {
+    font-size: 10.5px;
     font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-muted);
+  }
+
+  .mode-pills {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .mode-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    font-size: 11px;
+    border-radius: var(--radius-xs);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
     color: var(--ink-secondary);
+    justify-content: flex-start;
+  }
+
+  .mode-btn.active {
+    background: var(--accent-emerald-subtle);
+    border-color: var(--accent-emerald);
+    color: var(--accent-emerald-ink);
+    font-weight: 600;
   }
 
   .duration-pills {
     display: flex;
-    gap: 8px;
+    gap: 4px;
   }
 
   .dur-pill {
     flex: 1;
-    padding: 6px;
-    font-size: 12px;
-    background: var(--bg-subtle);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 5px 6px;
+    border-radius: var(--radius-xs);
+    background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     color: var(--ink-secondary);
   }
@@ -445,20 +592,9 @@
     font-weight: 700;
   }
 
-  .side-quote-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-sm);
-    padding: 14px 16px;
-    display: flex;
-    gap: 10px;
-    box-shadow: var(--shadow-sm);
-  }
-
-  .quote-text {
-    font-size: 12px;
-    font-style: italic;
-    color: var(--ink-secondary);
-    line-height: 1.45;
+  @media (max-width: 640px) {
+    .config-grid {
+      grid-template-columns: 1fr;
+    }
   }
 </style>

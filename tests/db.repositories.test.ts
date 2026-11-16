@@ -1,7 +1,7 @@
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { createDatabase } from '../src/db/client.js';
-import { runMigrations } from '../src/db/migrations.js';
+import { createDatabase } from '../src/db/client.ts';
+import { runMigrations } from '../src/db/migrations.ts';
 import {
   CoursesRepository,
   ClassesRepository,
@@ -10,17 +10,18 @@ import {
   PomodoroRepository,
   SettingsRepository,
   BackupService
-} from '../src/db/repositories.js';
+} from '../src/db/repositories.ts';
+import type { DatabaseSync } from 'node:sqlite';
 
 describe('SQLite Repositories & Migrations', () => {
-  let db;
-  let coursesRepo;
-  let classesRepo;
-  let routineRepo;
-  let assessmentsRepo;
-  let pomodoroRepo;
-  let settingsRepo;
-  let backupService;
+  let db: DatabaseSync;
+  let coursesRepo: CoursesRepository;
+  let classesRepo: ClassesRepository;
+  let routineRepo: RoutineRepository;
+  let assessmentsRepo: AssessmentsRepository;
+  let pomodoroRepo: PomodoroRepository;
+  let settingsRepo: SettingsRepository;
+  let backupService: BackupService;
 
   beforeEach(() => {
     // In-memory sqlite for clean, fast unit testing
@@ -38,17 +39,17 @@ describe('SQLite Repositories & Migrations', () => {
 
   describe('Database Initialization & PRAGMAs', () => {
     test('enables WAL mode, foreign keys, and busy timeout', () => {
-      const fk = db.prepare('PRAGMA foreign_keys').get();
+      const fk = db.prepare('PRAGMA foreign_keys').get() as { foreign_keys: number };
       assert.equal(fk.foreign_keys, 1);
 
-      const check = db.prepare('PRAGMA integrity_check').get();
+      const check = db.prepare('PRAGMA integrity_check').get() as { integrity_check: string };
       assert.equal(check.integrity_check, 'ok');
     });
 
     test('runs migrations idempotently', () => {
       // Running migrations again should be a no-op
       assert.doesNotThrow(() => runMigrations(db));
-      const version = db.prepare('PRAGMA user_version').get();
+      const version = db.prepare('PRAGMA user_version').get() as { user_version: number };
       assert.ok(version.user_version >= 1);
     });
   });
@@ -67,7 +68,7 @@ describe('SQLite Repositories & Migrations', () => {
       assert.equal(course.code, 'MATH204');
       assert.equal(course.effort_multiplier, 1.5);
 
-      const retrieved = coursesRepo.getById(course.id);
+      const retrieved = coursesRepo.getById(course.id)!;
       assert.equal(retrieved.name, 'Calculus II');
 
       const all = coursesRepo.getAll();
@@ -86,7 +87,7 @@ describe('SQLite Repositories & Migrations', () => {
         multiplier_expires_at: '2026-11-25'
       });
 
-      const updated = coursesRepo.getById(course.id);
+      const updated = coursesRepo.getById(course.id)!;
       assert.equal(updated.effort_multiplier, 2.0);
       assert.equal(updated.multiplier_expires_at, '2026-11-25');
     });
@@ -106,7 +107,7 @@ describe('SQLite Repositories & Migrations', () => {
         day_of_week: 1, // Monday
         start_time: '10:00',
         end_time: '11:30',
-        location: 'Room 401'
+        room: 'Room 401'
       });
 
       assert.ok(slot.id);
@@ -123,20 +124,20 @@ describe('SQLite Repositories & Migrations', () => {
         start_time: '14:00',
         end_time: '15:30',
         lecture_number: 8,
-        title: 'Thermodynamics'
+        notes: 'Thermodynamics'
       });
 
       assert.equal(cls.status, 'scheduled');
       assert.equal(cls.is_crunch_deferred, 0);
 
       classesRepo.markCrunchDeferred(cls.id, 1);
-      let updated = classesRepo.getById(cls.id);
+      let updated = classesRepo.getById(cls.id)!;
       assert.equal(updated.is_crunch_deferred, 1);
 
       classesRepo.markReviewed(cls.id);
-      updated = classesRepo.getById(cls.id);
+      updated = classesRepo.getById(cls.id)!;
       assert.equal(updated.status, 'reviewed');
-      assert.ok(updated.reviewed_at);
+      assert.ok((updated as unknown as { reviewed_at?: string }).reviewed_at);
     });
   });
 
@@ -183,11 +184,12 @@ describe('SQLite Repositories & Migrations', () => {
 
     test('logs completed pomodoro session', () => {
       const course = coursesRepo.create({ name: 'CS', code: 'CS101' });
+      const testTime = new Date(2026, 10, 16, 14, 0, 0).getTime();
       const session = pomodoroRepo.logSession({
         course_id: course.id,
         session_mode: 'recovery',
-        started_at: Date.now() - 1500000,
-        ended_at: Date.now(),
+        started_at: testTime - 1500000,
+        ended_at: testTime,
         duration_seconds: 1500,
         status: 'completed',
         notes: 'Finished Lecture 14'
@@ -218,7 +220,7 @@ describe('SQLite Repositories & Migrations', () => {
       assessmentsRepo.create({
         course_id: course.id,
         title: 'Midterm',
-        assessment_type: 'Midterm',
+        assessment_type: 'MIDTERM',
         exam_date: '2026-11-25T09:00:00',
         syllabus_range: '1-6'
       });

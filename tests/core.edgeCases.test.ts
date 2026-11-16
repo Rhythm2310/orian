@@ -4,7 +4,8 @@ import {
   recoverWallClockTimer,
   selectContextualQuote,
   handleClassDisruption
-} from '../src/core/pomodoro.js';
+} from '../src/core/pomodoro.ts';
+import type { Quote, ClassSession } from '../src/types/domain.ts';
 
 describe('Edge Cases & Pomodoro Engine', () => {
   describe('Wall-Clock Pomodoro Recovery Across Sleep/Restart', () => {
@@ -14,11 +15,11 @@ describe('Edge Cases & Pomodoro Engine', () => {
         id: 'pomo1',
         started_at: startedAt,
         target_duration_seconds: 25 * 60, // 25 mins
-        status: 'running'
+        status: 'running' as const
       };
       const now = Date.now();
 
-      const recovered = recoverWallClockTimer(activeSession, now);
+      const recovered = recoverWallClockTimer(activeSession, now)!;
       assert.equal(recovered.status, 'completed');
       assert.equal(recovered.autoCompleted, true);
       assert.equal(recovered.remainingSeconds, 0);
@@ -30,15 +31,15 @@ describe('Edge Cases & Pomodoro Engine', () => {
         id: 'pomo2',
         started_at: startedAt,
         target_duration_seconds: 25 * 60, // 25 mins = 1500s
-        status: 'running'
+        status: 'running' as const
       };
       const now = Date.now();
 
-      const recovered = recoverWallClockTimer(activeSession, now);
+      const recovered = recoverWallClockTimer(activeSession, now)!;
       assert.equal(recovered.status, 'running');
       assert.equal(recovered.autoCompleted, false);
       // should have ~15 mins (900 seconds) remaining
-      assert.ok(Math.abs(recovered.remainingSeconds - 900) <= 2);
+      assert.ok(Math.abs((recovered.remainingSeconds ?? 0) - 900) <= 2);
     });
 
     test('preserves paused timer without advancing elapsed time', () => {
@@ -46,12 +47,12 @@ describe('Edge Cases & Pomodoro Engine', () => {
         id: 'pomo3',
         started_at: Date.now() - (20 * 60 * 1000),
         target_duration_seconds: 1500,
-        status: 'paused',
+        status: 'paused' as const,
         paused_elapsed_seconds: 300
       };
       const now = Date.now();
 
-      const recovered = recoverWallClockTimer(activeSession, now);
+      const recovered = recoverWallClockTimer(activeSession, now)!;
       assert.equal(recovered.status, 'paused');
       assert.equal(recovered.elapsedSeconds, 300);
       assert.equal(recovered.remainingSeconds, 1200);
@@ -59,12 +60,12 @@ describe('Edge Cases & Pomodoro Engine', () => {
   });
 
   describe('Contextual Quote Matcher', () => {
-    const quotes = [
-      { id: '1', category: 'crunch', text: 'Crunch quote' },
-      { id: '2', category: 'exam_imminent', text: 'Exam quote' },
-      { id: '3', category: 'recovery_gap', text: 'Gap quote' },
-      { id: '4', category: 'break', text: 'Break quote' },
-      { id: '5', category: 'deep_focus', text: 'Focus quote' }
+    const quotes: Quote[] = [
+      { id: '1', category: 'crunch', text: 'Crunch quote', author: 'Orian' },
+      { id: '2', category: 'exam_imminent', text: 'Exam quote', author: 'Orian' },
+      { id: '3', category: 'recovery_gap', text: 'Gap quote', author: 'Orian' },
+      { id: '4', category: 'break', text: 'Break quote', author: 'Orian' },
+      { id: '5', category: 'deep_focus', text: 'Focus quote', author: 'Orian' }
     ];
 
     test('selects crunch quote when isCrunch is true', () => {
@@ -90,12 +91,17 @@ describe('Edge Cases & Pomodoro Engine', () => {
 
   describe('Routine Disruption Handlers', () => {
     test('handles sudden online/recorded switch with 48h guard', () => {
-      const originalClass = {
+      const originalClass: ClassSession = {
         id: 'cls1',
         course_id: 'c1',
         date: '2026-11-16',
         lecture_number: 14,
-        status: 'scheduled'
+        status: 'scheduled',
+        start_time: '09:00',
+        end_time: '10:30',
+        is_reviewed: 0,
+        is_makeup: 0,
+        is_crunch_deferred: 0
       };
 
       const result = handleClassDisruption({
@@ -103,19 +109,24 @@ describe('Edge Cases & Pomodoro Engine', () => {
         disruptionType: 'online_recorded'
       });
 
-      assert.equal(result.updatedClass.status, 'online_recorded');
+      assert.equal(result.updatedClass?.status, 'online_recorded');
       assert.equal(result.guardActive, true);
       assert.equal(result.recoveryDueHours, 48);
       assert.ok(result.notice.includes('Online lecture delay guard active'));
     });
 
     test('handles cancelled lecture exception without modifying template', () => {
-      const originalClass = {
+      const originalClass: ClassSession = {
         id: 'cls2',
         course_id: 'c1',
         date: '2026-11-16',
         lecture_number: 15,
-        status: 'scheduled'
+        status: 'scheduled',
+        start_time: '09:00',
+        end_time: '10:30',
+        is_reviewed: 0,
+        is_makeup: 0,
+        is_crunch_deferred: 0
       };
 
       const result = handleClassDisruption({
@@ -123,7 +134,7 @@ describe('Edge Cases & Pomodoro Engine', () => {
         disruptionType: 'cancelled'
       });
 
-      assert.equal(result.updatedClass.status, 'cancelled');
+      assert.equal(result.updatedClass?.status, 'cancelled');
       assert.equal(result.suppressShield, true);
       assert.equal(result.recurringTemplateMutated, false);
     });
@@ -140,8 +151,8 @@ describe('Edge Cases & Pomodoro Engine', () => {
 
       assert.equal(result.isMakeup, true);
       assert.equal(result.recurringTemplateMutated, false);
-      assert.equal(result.updatedClass.status, 'scheduled');
-      assert.equal(result.updatedClass.is_makeup, 1);
+      assert.equal(result.updatedClass?.status, 'scheduled');
+      assert.equal(result.updatedClass?.is_makeup, 1);
     });
   });
 });

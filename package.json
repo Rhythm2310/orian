@@ -4,12 +4,13 @@
   "description": "100% offline study backlog prevention, exam triage, and focus recovery workbench",
   "private": true,
   "type": "module",
-  "main": "electron/main.js",
+  "main": "electron/main.ts",
   "scripts": {
     "dev:client": "vite",
     "build:client": "vite build",
     "preview": "vite preview",
-    "test": "node --test tests/*.test.js",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit && svelte-check --tsconfig tsconfig.json",
     "start": "electron .",
     "pack:win": "vite build && electron-builder --win --dir",
     "dist:win": "vite build && electron-builder --win"
@@ -19,9 +20,12 @@
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
+    "@types/node": "^26.6.6",
     "electron": "^39.8.10",
     "electron-builder": "^26.18.0",
     "svelte": "^5.20.0",
+    "svelte-check": "^4.7.8",
+    "typescript": "~5.7.3",
     "vite": "^6.2.0"
   }
 }

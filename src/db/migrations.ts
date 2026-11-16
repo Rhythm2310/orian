@@ -1,10 +1,16 @@
 /**
  * Orian Database Migrations
- * Idempotent, version-tracked database schema migrations.
+ * 100% Strict TypeScript idempotent, version-tracked database schema migrations.
  */
 
-export function runMigrations(db) {
-  const currentVersionRow = db.prepare('PRAGMA user_version').get();
+import type { DatabaseSync } from 'node:sqlite';
+
+interface UserVersionRow {
+  user_version: number;
+}
+
+export function runMigrations(db: DatabaseSync): void {
+  const currentVersionRow = db.prepare('PRAGMA user_version').get() as unknown as UserVersionRow | undefined;
   const currentVersion = currentVersionRow ? currentVersionRow.user_version : 0;
 
   if (currentVersion < 1) {
