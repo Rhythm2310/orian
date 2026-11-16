@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Production output & installers
+dist/
+release/
+
+# Build caches & tool metadata
+.impeccable/
+.vite/
+
+# Database files & logs
+*.db
+*.db-wal
+*.db-shm
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini

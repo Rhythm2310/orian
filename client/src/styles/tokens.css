@@ -1,0 +1,253 @@
+/* Offline Bundled Font Faces */
+@font-face {
+  font-family: 'Newsreader';
+  src: url('/fonts/Newsreader-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Newsreader';
+  src: url('/fonts/Newsreader-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Newsreader';
+  src: url('/fonts/Newsreader-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('/fonts/PlusJakartaSans-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('/fonts/PlusJakartaSans-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('/fonts/PlusJakartaSans-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('/fonts/PlusJakartaSans-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/fonts/IBMPlexMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/fonts/IBMPlexMono-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/fonts/IBMPlexMono-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('/fonts/OpenDyslexic-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('/fonts/OpenDyslexic-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Studio Light (Default) */
+:root {
+  --font-display: 'Newsreader', Georgia, serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --font-dyslexic: 'OpenDyslexic', 'Plus Jakarta Sans', sans-serif;
+
+  --font-body: var(--font-sans);
+
+  --bg-rail: #F4F2EC;
+  --bg-stage: #FAF9F5;
+  --bg-surface: #FFFFFF;
+  --bg-subtle: #EFECE4;
+  --bg-hover: #E7E3D8;
+
+  --ink-primary: #171917;
+  --ink-secondary: #525650;
+  --ink-muted: #636760;
+
+  --border-subtle: #E5E1D6;
+  --border-strong: #D3CDC0;
+
+  --accent-emerald: #1A6B4E;
+  --accent-emerald-subtle: #E6F2ED;
+  --accent-emerald-ink: #0D4430;
+
+  --accent-amber: #B9581A;
+  --accent-amber-subtle: #FBF0E7;
+  --accent-amber-ink: #7A350B;
+
+  --accent-crimson: #B91C1C;
+  --accent-crimson-subtle: #FDE8E8;
+  --accent-crimson-ink: #7A1010;
+
+  --accent-blue: #1D5CA3;
+  --accent-blue-subtle: #E8F1FC;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 1px 2px rgba(23, 25, 23, 0.04);
+  --shadow-md: 0 4px 12px rgba(23, 25, 23, 0.06), 0 1px 2px rgba(23, 25, 23, 0.04);
+  --shadow-lg: 0 12px 32px rgba(23, 25, 23, 0.1), 0 2px 4px rgba(23, 25, 23, 0.04);
+
+  --transition-fast: 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-normal: 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Studio Dark */
+[data-theme="dark"] {
+  --bg-rail: #111312;
+  --bg-stage: #161917;
+  --bg-surface: #1D201E;
+  --bg-subtle: #262A27;
+  --bg-hover: #303531;
+
+  --ink-primary: #F1F0EA;
+  --ink-secondary: #B5B9B2;
+  --ink-muted: #969B93;
+
+  --border-subtle: #2C312E;
+  --border-strong: #3E4540;
+
+  --accent-emerald: #34A87C;
+  --accent-emerald-subtle: #133324;
+  --accent-emerald-ink: #7AE0B6;
+
+  --accent-amber: #E58949;
+  --accent-amber-subtle: #382012;
+  --accent-amber-ink: #F9BC8F;
+
+  --accent-crimson: #EF5350;
+  --accent-crimson-subtle: #3D1515;
+  --accent-crimson-ink: #FF8F8E;
+
+  --accent-blue: #4D8FE4;
+  --accent-blue-subtle: #172D4A;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* High Contrast Mode */
+[data-contrast="high"] {
+  --bg-rail: #000000;
+  --bg-stage: #000000;
+  --bg-surface: #000000;
+  --bg-subtle: #181818;
+  --bg-hover: #262626;
+
+  --ink-primary: #FFFFFF;
+  --ink-secondary: #EEEEEE;
+  --ink-muted: #CCCCCC;
+
+  --border-subtle: #FFFFFF;
+  --border-strong: #FFFFFF;
+
+  --accent-emerald: #00FF99;
+  --accent-emerald-subtle: #003319;
+  --accent-emerald-ink: #00FF99;
+
+  --accent-amber: #FFB300;
+  --accent-amber-subtle: #3D2B00;
+  --accent-amber-ink: #FFB300;
+
+  --accent-crimson: #FF4444;
+  --accent-crimson-subtle: #4D0000;
+  --accent-crimson-ink: #FF4444;
+
+  --accent-blue: #3399FF;
+  --accent-blue-subtle: #00224D;
+}
+
+[data-contrast="high"] * {
+  border-width: 2px !important;
+}
+
+/* Dyslexic Font Support */
+[data-dyslexic="true"] {
+  --font-body: var(--font-dyslexic);
+  letter-spacing: 0.03em;
+  line-height: 1.65;
+}
+
+/* Browser Surface Styling */
+::selection {
+  background: var(--accent-emerald-subtle);
+  color: var(--accent-emerald-ink);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-muted);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}

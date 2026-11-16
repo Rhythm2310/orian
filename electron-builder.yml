@@ -1,0 +1,30 @@
+appId: com.orian.desktop
+productName: Orian
+copyright: Copyright © 2026 Orian
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - electron/**/*
+  - src/**/*
+  - data/**/*
+  - package.json
+asar: true
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  icon: build/icon.ico
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  artifactName: "Orian-Setup-${version}.${ext}"
+portable:
+  artifactName: "Orian-Portable-${version}.${ext}"

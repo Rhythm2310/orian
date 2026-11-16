@@ -1,0 +1,62 @@
+[
+  {
+    "id": "q1",
+    "text": "Start with the single lecture that unblocks the next two.",
+    "author": "Orian Principle",
+    "category": "deep_focus"
+  },
+  {
+    "id": "q2",
+    "text": "One complete revision block is worth three half-hearted skimming sessions.",
+    "author": "Orian Principle",
+    "category": "exam_imminent"
+  },
+  {
+    "id": "q3",
+    "text": "Protect tomorrow's exam first. Unrelated lectures can safely wait in the recovery queue.",
+    "author": "Exam Crunch Guide",
+    "category": "crunch"
+  },
+  {
+    "id": "q4",
+    "text": "Returning after absence is triage, not punishment. Pick the highest strain course first.",
+    "author": "Recovery Protocol",
+    "category": "recovery_gap"
+  },
+  {
+    "id": "q5",
+    "text": "Consistent daily study beats heroic all-nighters that destroy cognitive retention.",
+    "author": "Cognitive Science",
+    "category": "streak_milestone"
+  },
+  {
+    "id": "q6",
+    "text": "Step away from the screen. Real consolidation happens during downtime.",
+    "author": "Rest Directive",
+    "category": "break"
+  },
+  {
+    "id": "q7",
+    "text": "Focus on syllabus boundaries. Knowing 80% with mastery beats 100% with confusion.",
+    "author": "Exam Strategy",
+    "category": "exam_imminent"
+  },
+  {
+    "id": "q8",
+    "text": "Online lectures carry an invisible delay debt. Clear them within 48 hours.",
+    "author": "Procrastination Guard",
+    "category": "deep_focus"
+  },
+  {
+    "id": "q9",
+    "text": "Capacity is finite. Say no to non-exam backlog when midterms collide.",
+    "author": "Allocator Principle",
+    "category": "crunch"
+  },
+  {
+    "id": "q10",
+    "text": "The gap is closed one Pomodoro block at a time.",
+    "author": "Orian Principle",
+    "category": "recovery_gap"
+  }
+]
