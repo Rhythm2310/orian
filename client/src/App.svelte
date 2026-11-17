@@ -24,6 +24,7 @@
 </script>
 
 <div class="orian-app">
+  <a href="#main-stage" class="skip-link">Skip to main content</a>
   <TitleBar />
 
   {#if store.isLoading}
@@ -34,26 +35,28 @@
       <span class="loading-text">Initializing Orian Engine...</span>
     </div>
   {:else if !store.snapshot?.settings?.onboarding_completed}
-    <main class="onboarding-stage">
+    <main id="main-stage" class="onboarding-stage" aria-label="Onboarding Setup">
       <OnboardingWizard />
     </main>
   {:else}
     <div class="app-workspace">
       <Sidebar />
 
-      <main class="main-stage">
-        {#if store.currentView === 'dashboard'}
-          <DashboardView />
-        {:else if store.currentView === 'queue'}
-          <QueueView />
-        {:else if store.currentView === 'routine'}
-          <RoutineView />
-        {:else if store.currentView === 'pomodoro'}
-          <PomodoroView />
-        {:else if store.currentView === 'settings'}
-          <SettingsView />
-        {/if}
-      </main>
+      {#key store.currentView}
+        <main id="main-stage" class="main-stage view-transition-stage" aria-label="Main Content">
+          {#if store.currentView === 'dashboard'}
+            <DashboardView />
+          {:else if store.currentView === 'queue'}
+            <QueueView />
+          {:else if store.currentView === 'routine'}
+            <RoutineView />
+          {:else if store.currentView === 'pomodoro'}
+            <PomodoroView />
+          {:else if store.currentView === 'settings'}
+            <SettingsView />
+          {/if}
+        </main>
+      {/key}
     </div>
   {/if}
 

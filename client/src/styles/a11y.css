@@ -9,14 +9,53 @@
   outline-offset: 3px !important;
 }
 
-/* Reduced Motion Override */
+/* Intentional Reduced Motion — Preserves state hierarchy while eliminating disorienting movement */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
-    animation-duration: 0.01ms !important;
+    animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
+
+  /* Preserve essential opacity transitions for feedback and dialogs */
+  .modal-card,
+  .toast-card,
+  .palette-card {
+    transform: none !important;
+    transition: opacity 0.1s linear !important;
+  }
+
+  .view-transition-stage {
+    animation: none !important;
+    transform: none !important;
+  }
+
+  /* Disable continuous spinning/pulsing */
+  .loading-pulse-ring,
+  .brand-beacon,
+  .pulse-emerald {
+    animation: none !important;
+  }
+}
+
+/* Skip to Content Accessibility Link */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 12px;
+  background: var(--accent-emerald);
+  color: var(--ink-on-accent);
+  padding: 8px 14px;
+  border-radius: var(--radius-xs);
+  z-index: 9999;
+  font-weight: 600;
+  text-decoration: none;
+  transition: top var(--transition-fast);
+}
+
+.skip-link:focus {
+  top: 8px;
 }
 
 /* Screen Reader Only Utility */

@@ -195,6 +195,7 @@ export class IpcService {
       todayClasses,
       upcomingExams,
       unwatchedLectures,
+      routineSlots: this.routineRepo.getAll(),
       allocation,
       capacityDeficit,
       activeTimer,
@@ -328,12 +329,14 @@ export class IpcService {
 
     for (const slot of slots) {
       if (!existingCourseIds.has(slot.course_id)) {
+        const nextLec = this.classesRepo.getNextLectureNumber(slot.course_id);
         this.classesRepo.create({
           course_id: slot.course_id,
           date: academicDateStr,
           start_time: slot.start_time,
           end_time: slot.end_time,
-          notes: `${slot.course_code || 'Lecture'}`
+          lecture_number: nextLec,
+          notes: `${slot.course_code || 'Lecture'} ${nextLec}`
         });
       }
     }
@@ -491,7 +494,15 @@ export class IpcService {
 
   settingsUpdate(updates: Partial<SettingsState> = {}): SettingsState {
     for (const [k, v] of Object.entries(updates)) {
-      this.settingsRepo.set(k, v);
+      if (v !== undefined) {
+        this.settingsRepo.set(k, v);
+      }
+    }
+    // Keep daily block targets synchronized
+    if (updates.daily_block_target !== undefined && updates.daily_study_blocks_target === undefined) {
+      this.settingsRepo.set('daily_study_blocks_target', Number(updates.daily_block_target));
+    } else if (updates.daily_study_blocks_target !== undefined && updates.daily_block_target === undefined) {
+      this.settingsRepo.set('daily_block_target', Number(updates.daily_study_blocks_target));
     }
     snapshotCache.invalidate();
     return this.settingsRepo.getAll();

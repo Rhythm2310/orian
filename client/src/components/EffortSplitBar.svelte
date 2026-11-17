@@ -41,7 +41,14 @@
     </div>
 
     <!-- Segmented Proportional Bar (1500 DPI Subpixel Crisp Track) -->
-    <div class="split-track" role="progressbar" aria-label="Daily Effort Split">
+    <div
+      class="split-track"
+      role="progressbar"
+      aria-label="Daily Effort Split"
+      aria-valuenow={100}
+      aria-valuemin={0}
+      aria-valuemax={100}
+    >
       {#if routineShieldPct > 0}
         <div
           class="track-segment routine-shield-segment"
@@ -153,18 +160,13 @@
   }
 
   .routine-shield-segment {
-    background: repeating-linear-gradient(
-      -45deg,
-      var(--accent-emerald-subtle),
-      var(--accent-emerald-subtle) 4px,
-      color-mix(in srgb, var(--accent-emerald) 40%, transparent) 4px,
-      color-mix(in srgb, var(--accent-emerald) 40%, transparent) 8px
-    );
+    background: color-mix(in srgb, var(--accent-emerald) 28%, var(--bg-surface));
+    border-right: 1px solid var(--accent-emerald);
   }
 
   .routine-shield-dot {
     background: var(--accent-emerald);
-    border: 1px dashed var(--accent-emerald-ink);
+    border-radius: var(--radius-full);
   }
 
   .bar-legend {

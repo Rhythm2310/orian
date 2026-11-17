@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { store } from '../lib/store.svelte.ts';
   import { api } from '../lib/api.ts';
   import {
@@ -133,6 +134,38 @@
     await store.refreshSnapshot();
   }
 
+  let routineSlots = $state<RoutineSlot[]>([]);
+
+  async function loadRoutineSlots(): Promise<void> {
+    try {
+      routineSlots = await api.getRoutine();
+    } catch {
+      routineSlots = store.snapshot?.routineSlots || [];
+    }
+  }
+
+  $effect(() => {
+    if (store.snapshot?.routineSlots) {
+      routineSlots = store.snapshot.routineSlots;
+    }
+  });
+
+  $effect(() => {
+    if (showAddSlotModal && !slotCourseId && store.snapshot?.courses?.length) {
+      slotCourseId = store.snapshot.courses[0].id;
+    }
+  });
+
+  $effect(() => {
+    if (showAddExamModal && !examCourseId && store.snapshot?.courses?.length) {
+      examCourseId = store.snapshot.courses[0].id;
+    }
+  });
+
+  onMount(() => {
+    loadRoutineSlots();
+  });
+
   async function handleAddSlot(): Promise<void> {
     if (!slotCourseId) return;
     try {
@@ -146,6 +179,7 @@
       showAddSlotModal = false;
       store.showToast('Routine timeslot added.');
       await store.refreshSnapshot();
+      await loadRoutineSlots();
     } catch (err) {
       store.showToast(err instanceof Error ? err.message : 'Error adding slot');
     }
@@ -168,11 +202,12 @@
     await api.deleteRoutineSlot(id);
     store.showToast('Routine slot removed.');
     await store.refreshSnapshot();
+    await loadRoutineSlots();
   }
 
   function getSlotsForDay(dayId: number): RoutineSlot[] {
-    return (store.snapshot?.courses ? (store.snapshot as unknown as { routineSlots?: RoutineSlot[] }).routineSlots || [] : [])
-      .filter(s => s.day_of_week === dayId);
+    const list = routineSlots.length > 0 ? routineSlots : (store.snapshot?.routineSlots || []);
+    return list.filter(s => s.day_of_week === dayId);
   }
 </script>
 
@@ -249,7 +284,7 @@
 
   <!-- Tab 1: Weekly Timetable -->
   {#if activeTab === 'timetable'}
-    <div class="timetable-grid">
+    <div class="timetable-grid" role="tabpanel" aria-label="Weekly Timetable">
       {#each weekdays as day (day.id)}
         <div class="day-column surface-card">
           <div class="day-header">
@@ -267,12 +302,15 @@
 
           <div class="day-slots">
             {#each getSlotsForDay(day.id) as slot (slot.id)}
-              <div class="slot-pill" style="border-left-color: {slot.course_color || '#1A6B4E'}">
+              <div class="slot-pill">
                 <div class="slot-main">
-                  <span class="slot-code">{slot.course_code || 'Lecture'}</span>
+                  <div class="slot-header">
+                    <span class="slot-indicator" style="background: {slot.course_color || '#1A6B4E'}" aria-hidden="true"></span>
+                    <span class="slot-code">{slot.course_code || 'Lecture'}</span>
+                  </div>
                   <span class="slot-time tabular-nums">{slot.start_time} - {slot.end_time}</span>
-                  {#if slot.room}
-                    <span class="slot-room">{slot.room}</span>
+                  {#if slot.room || slot.location}
+                    <span class="slot-room">{slot.room || slot.location}</span>
                   {/if}
                 </div>
                 <button
@@ -302,7 +340,7 @@
 
   <!-- Tab 2: Course Effort Multipliers Panel -->
   {#if activeTab === 'courses'}
-    <div class="courses-panel surface-card leading-line">
+    <div class="courses-panel surface-card leading-line" role="tabpanel" aria-label="Course Effort Multipliers">
       <div class="panel-header">
         <h2>Course Effort Multipliers</h2>
         <p class="panel-desc">Shift study hours toward demanding courses (0.5x Light to 2.0x Heavy Focus). Affects proportional daily block allocation.</p>
@@ -356,7 +394,7 @@
 
   <!-- Tab 3: Assessments & Exams Panel -->
   {#if activeTab === 'assessments'}
-    <div class="assessments-panel surface-card leading-line">
+    <div class="assessments-panel surface-card leading-line" role="tabpanel" aria-label="Scheduled Assessments and Exams">
       <div class="panel-header">
         <h2>Scheduled Assessments & Exams</h2>
         <p class="panel-desc">CTs, Midterms, and Finals automatically trigger proportional reallocation and exam crunch shields.</p>
@@ -704,11 +742,29 @@
     justify-content: space-between;
     align-items: flex-start;
     padding: 6px 8px;
-    background: var(--bg-stage);
+    background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
-    border-left: 3px solid;
     border-radius: var(--radius-xs);
     gap: 4px;
+    box-shadow: var(--shadow-sm);
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+  }
+
+  .slot-pill:hover {
+    border-color: var(--border-strong);
+  }
+
+  .slot-header {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .slot-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: var(--radius-full);
+    flex-shrink: 0;
   }
 
   .slot-main {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { store } from '../lib/store.svelte.ts';
   import { api } from '../lib/api.ts';
+  import { playSuccessChime } from '../lib/audio.ts';
   import {
     Settings,
     Eye,
@@ -28,11 +29,13 @@
 
   async function savePreferences(): Promise<void> {
     await api.updateSettings({
+      daily_study_blocks_target: Number(dailyTarget),
       daily_block_target: Number(dailyTarget),
       academic_cutoff_hour: Number(cutoffHour),
       finals_prep_mode: finalsMode,
       chimes_enabled: chimes
     });
+    playSuccessChime(chimes);
     store.showToast('Settings saved successfully.');
     await store.refreshSnapshot();
   }

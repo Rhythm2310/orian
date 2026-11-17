@@ -61,6 +61,12 @@
     const elapsed = Math.max(0, target - remaining);
     return Math.min(1, elapsed / target);
   });
+
+  function getActiveCourseCode(): string | null {
+    if (!store.activeTimer || !store.activeTimer.course_id) return null;
+    const crs = (store.snapshot?.courses || []).find(c => c.id === store.activeTimer!.course_id);
+    return crs ? crs.code : null;
+  }
 </script>
 
 <aside class="left-rail" aria-label="Workbench Sidebar">
@@ -71,6 +77,7 @@
         type="button"
         class="nav-item {store.currentView === 'dashboard' ? 'active' : ''}"
         onclick={() => store.setView('dashboard')}
+        aria-current={store.currentView === 'dashboard' ? 'page' : undefined}
       >
         <LayoutDashboard size={15} strokeWidth={1.75} />
         <span class="nav-label">Today's Plan</span>
@@ -80,6 +87,7 @@
         type="button"
         class="nav-item {store.currentView === 'queue' ? 'active' : ''}"
         onclick={() => store.setView('queue')}
+        aria-current={store.currentView === 'queue' ? 'page' : undefined}
       >
         <ListTodo size={15} strokeWidth={1.75} />
         <span class="nav-label">Recovery Queue</span>
@@ -94,6 +102,7 @@
         type="button"
         class="nav-item {store.currentView === 'routine' ? 'active' : ''}"
         onclick={() => store.setView('routine')}
+        aria-current={store.currentView === 'routine' ? 'page' : undefined}
       >
         <CalendarDays size={15} strokeWidth={1.75} />
         <span class="nav-label">Routine & Exams</span>
@@ -106,6 +115,7 @@
         type="button"
         class="nav-item {store.currentView === 'pomodoro' ? 'active' : ''}"
         onclick={() => store.setView('pomodoro')}
+        aria-current={store.currentView === 'pomodoro' ? 'page' : undefined}
       >
         <Timer size={15} strokeWidth={1.75} />
         <span class="nav-label">Pomodoro Focus</span>
@@ -115,6 +125,7 @@
         type="button"
         class="nav-item {store.currentView === 'settings' ? 'active' : ''}"
         onclick={() => store.setView('settings')}
+        aria-current={store.currentView === 'settings' ? 'page' : undefined}
       >
         <Settings size={15} strokeWidth={1.75} />
         <span class="nav-label">Settings & A11y</span>
@@ -172,7 +183,15 @@
   <div class="rail-bottom">
     {#if store.activeTimer}
       <div class="mini-timer-card {store.activeTimer.status}">
-        <div class="mini-timer-left">
+        <div
+          class="mini-timer-left"
+          onclick={() => store.setView('pomodoro')}
+          role="button"
+          tabindex="0"
+          onkeydown={(e) => { if (e.key === 'Enter') store.setView('pomodoro'); }}
+          title="Open Focus Studio"
+          aria-label="Open Focus Studio"
+        >
           <!-- Miniature Ring -->
           <svg class="mini-ring" viewBox="0 0 32 32">
             <circle class="ring-bg" cx="16" cy="16" r="13" />
@@ -186,8 +205,8 @@
             />
           </svg>
           <div class="mini-timer-info">
-            <span class="mini-timer-mode">
-              {store.activeTimer.mode === 'exam_revision' ? 'Exam Prep' : 'Focus Session'}
+            <span class="mini-timer-mode truncate" title="{getActiveCourseCode() ? `${getActiveCourseCode()} · ` : ''}{store.activeTimer.mode === 'exam_revision' ? 'Exam Prep' : store.activeTimer.mode === 'lecture_recovery' ? 'Recovery' : 'Focus'}">
+              {getActiveCourseCode() ? `${getActiveCourseCode()} · ` : ''}{store.activeTimer.mode === 'exam_revision' ? 'Exam Prep' : store.activeTimer.mode === 'lecture_recovery' ? 'Recovery' : 'Focus'}
             </span>
             <span class="mini-timer-digits tabular-nums">
               {formatTime(store.activeTimer.remainingSeconds || 0)}

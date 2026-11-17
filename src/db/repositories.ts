@@ -179,6 +179,11 @@ export class ClassesRepository {
     return this.stmtGetUnwatched.all() as unknown as ClassSession[];
   }
 
+  getNextLectureNumber(courseId: string): number {
+    const row = this.db.prepare('SELECT COALESCE(MAX(lecture_number), 0) + 1 as next_num FROM classes WHERE course_id = ?').get(courseId) as { next_num: number } | undefined;
+    return row ? Number(row.next_num) : 1;
+  }
+
   markCrunchDeferred(id: string, deferred = 1): ClassSession | null {
     this.db.prepare('UPDATE classes SET is_crunch_deferred = ? WHERE id = ?').run(deferred, id);
     return this.getById(id);
@@ -241,19 +246,19 @@ export class RoutineRepository {
   constructor(db: DatabaseSync) {
     this.db = db;
     this.stmtGetById = db.prepare(`
-      SELECT rs.*, co.name as course_name, co.code as course_code, co.color as course_color
+      SELECT rs.*, rs.location as room, co.name as course_name, co.code as course_code, co.color as course_color
       FROM routine_slots rs
       LEFT JOIN courses co ON rs.course_id = co.id
       WHERE rs.id = ?
     `);
     this.stmtGetAll = db.prepare(`
-      SELECT rs.*, co.name as course_name, co.code as course_code, co.color as course_color
+      SELECT rs.*, rs.location as room, co.name as course_name, co.code as course_code, co.color as course_color
       FROM routine_slots rs
       JOIN courses co ON rs.course_id = co.id
       ORDER BY rs.day_of_week ASC, rs.start_time ASC
     `);
     this.stmtGetByDay = db.prepare(`
-      SELECT rs.*, co.name as course_name, co.code as course_code, co.color as course_color
+      SELECT rs.*, rs.location as room, co.name as course_name, co.code as course_code, co.color as course_color
       FROM routine_slots rs
       JOIN courses co ON rs.course_id = co.id
       WHERE rs.day_of_week = ?

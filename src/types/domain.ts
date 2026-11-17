@@ -59,6 +59,7 @@ export interface RoutineSlot {
   start_time: string; // "HH:MM"
   end_time: string;   // "HH:MM"
   room?: string | null;
+  location?: string | null;
 }
 
 export interface RoutineSlotInput {
@@ -262,6 +263,7 @@ export interface DashboardSnapshot {
   todayClasses: ClassSession[];
   upcomingExams: Assessment[];
   unwatchedLectures: ClassSession[];
+  routineSlots?: RoutineSlot[];
   allocation: DailyAllocationResult;
   capacityDeficit: CapacityDeficit;
   activeTimer: ActiveTimerState | null;

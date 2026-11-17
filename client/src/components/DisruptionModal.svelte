@@ -35,6 +35,16 @@
     await store.refreshSnapshot();
   }
 
+  let modalDialogEl = $state<HTMLDivElement | null>(null);
+
+  $effect(() => {
+    if (store.showDisruptionModal) {
+      setTimeout(() => {
+        modalDialogEl?.focus();
+      }, 50);
+    }
+  });
+
   function handleKeyDown(event: KeyboardEvent): void {
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -54,6 +64,7 @@
     ></button>
 
     <div
+      bind:this={modalDialogEl}
       class="modal-card surface-card leading-line"
       role="dialog"
       aria-modal="true"

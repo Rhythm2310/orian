@@ -1,6 +1,7 @@
 <script lang="ts">
   import { store } from '../lib/store.svelte.ts';
   import { api } from '../lib/api.ts';
+  import { playSuccessChime } from '../lib/audio.ts';
   import {
     Compass,
     BookOpen,
@@ -71,6 +72,7 @@
   async function completeOnboarding(): Promise<void> {
     // 1. Save Settings
     await api.updateSettings({
+      daily_study_blocks_target: Number(dailyTarget),
       daily_block_target: Number(dailyTarget),
       academic_cutoff_hour: Number(cutoffHour),
       onboarding_completed: true,
@@ -120,6 +122,7 @@
     }
 
     await store.refreshSnapshot();
+    playSuccessChime(store.chimesEnabled);
     store.showToast('Welcome to Orian! Your academic battle plan is active.');
     store.setView('dashboard');
   }
@@ -338,6 +341,15 @@
           </div>
 
           <div class="form-grid">
+            <div class="form-group">
+              <label for="exam-course">Course</label>
+              <select id="exam-course" bind:value={examCourseCode}>
+                {#each coursesList as crs (crs.code)}
+                  <option value={crs.code}>{crs.code} — {crs.name}</option>
+                {/each}
+              </select>
+            </div>
+
             <div class="form-group">
               <label for="exam-title">Assessment Title</label>
               <input id="exam-title" type="text" bind:value={examTitle} />

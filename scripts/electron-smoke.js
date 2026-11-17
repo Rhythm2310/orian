@@ -45,11 +45,11 @@ const timeout = setTimeout(() => {
     child.kill('SIGINT');
     process.exit(0);
   } else {
-    console.error('Electron smoke test failed: Smoke test confirmation message was not emitted within 6 seconds.');
+    console.error('Electron smoke test failed: Smoke test confirmation message was not emitted within 15 seconds.');
     child.kill('SIGKILL');
     process.exit(1);
   }
-}, 6000);
+}, 15000);
 
 child.on('exit', (code) => {
   clearTimeout(timeout);

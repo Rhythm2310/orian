@@ -104,3 +104,27 @@ export function playBreakBell(enabled = true): void {
   osc.start(now);
   osc.stop(now + 1.0);
 }
+
+export function playSuccessChime(enabled = true): void {
+  if (!enabled) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(587.33, now); // D5
+  osc.frequency.exponentialRampToValueAtTime(880.0, now + 0.18); // A5
+
+  gain.gain.setValueAtTime(0.001, now);
+  gain.gain.linearRampToValueAtTime(0.08, now + 0.03);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+
+  osc.start(now);
+  osc.stop(now + 0.6);
+}

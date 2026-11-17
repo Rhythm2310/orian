@@ -1,6 +1,7 @@
 <script lang="ts">
   import { store } from '../lib/store.svelte.ts';
   import { api } from '../lib/api.ts';
+  import { playSuccessChime } from '../lib/audio.ts';
   import {
     ShieldCheck,
     ClockAlert,
@@ -9,13 +10,25 @@
     CalendarPlus,
     Sparkles,
     Flame,
-    ArrowRight
+    ArrowRight,
+    GraduationCap
   } from '@lucide/svelte';
 
   import EffortSplitBar from '../components/EffortSplitBar.svelte';
   import ExamRadar from '../components/ExamRadar.svelte';
   import CrunchDeficitAlert from '../components/CrunchDeficitAlert.svelte';
-  import type { ClassSession, Course } from '../lib/types.ts';
+  import type { ClassSession, Course, Assessment } from '../lib/types.ts';
+
+  async function launchPomodoroForExam(exam: Assessment): Promise<void> {
+    await api.startPomodoro({
+      course_id: exam.course_id,
+      assessment_id: exam.id,
+      mode: 'exam_revision',
+      durationMinutes: 25
+    });
+    await store.refreshSnapshot();
+    store.setView('pomodoro');
+  }
 
   async function launchPomodoroForClass(cls: ClassSession): Promise<void> {
     await api.startPomodoro({
@@ -29,6 +42,7 @@
   }
 
   async function markClassReviewed(cls: ClassSession): Promise<void> {
+    playSuccessChime(store.chimesEnabled);
     await api.markClassReviewed(cls.id);
     store.showToast('Lecture marked as reviewed. Shield secured!');
     await store.refreshSnapshot();
@@ -106,8 +120,8 @@
                 {crs.code}
               </span>
               <div class="class-info">
-                <div class="class-title">
-                  {cls.notes || `Lecture ${cls.lecture_number ?? 1}`}
+                <div class="class-title truncate" title={cls.notes || `Lecture ${cls.lecture_number ?? 1}`}>
+                  <span>{cls.notes || `Lecture ${cls.lecture_number ?? 1}`}</span>
                   {#if cls.is_makeup}
                     <span class="tag tag-amber">Off-Day Makeup</span>
                   {/if}
@@ -162,6 +176,64 @@
     {/if}
   </section>
 
+  <!-- Today's Exam Prep & Revision Blocks -->
+  <section class="plan-section surface-card leading-line" aria-label="Today's Exam Prep and Revision Blocks">
+    <div class="section-heading">
+      <div class="heading-title">
+        <GraduationCap size={16} strokeWidth={2} class="section-icon grad-icon" />
+        <h2>Exam Prep & Revision Blocks</h2>
+      </div>
+      {#if store.snapshot?.settings?.finals_prep_mode}
+        <span class="tag tag-amber">100% Finals Focus</span>
+      {/if}
+    </div>
+
+    {#if store.snapshot?.upcomingExams?.length}
+      <div class="classes-grid">
+        {#each store.snapshot.upcomingExams as exam (exam.id)}
+          {@const crs = getCourse(exam.course_id)}
+          {@const alloc = store.snapshot?.allocation?.courseAllocations?.find(a => a.course_id === exam.course_id)}
+          <div class="class-card exam-prep-card">
+            <div class="card-left">
+              <span class="course-badge" style="background: {crs.color || '#1A6B4E'}">
+                {crs.code}
+              </span>
+              <div class="class-info">
+                <div class="class-title truncate" title={exam.title}>
+                  <span>{exam.title}</span>
+                  <span class="tag tag-neutral">{exam.assessment_type}</span>
+                </div>
+                <div class="class-time tabular-nums">
+                  Prep: {exam.revision_completed_blocks || 0} / {exam.revision_target_blocks || 4} blocks
+                  {#if alloc && alloc.allocatedBlocks > 0}
+                    · Today's Budget: {alloc.allocatedBlocks} blocks
+                  {/if}
+                  · Syllabus: {exam.syllabus_range}
+                </div>
+              </div>
+            </div>
+
+            <div class="card-right">
+              <button
+                type="button"
+                class="primary action-btn"
+                onclick={() => launchPomodoroForExam(exam)}
+                title="Launch 25m Pomodoro exam prep session"
+              >
+                <Play size={12} strokeWidth={2} />
+                <span>Prep Block (25m)</span>
+              </button>
+            </div>
+          </div>
+        {/each}
+      </div>
+    {:else}
+      <div class="empty-state">
+        <p>No imminent assessments scheduled. All study capacity is allocated to live class shields and backlog recovery.</p>
+      </div>
+    {/if}
+  </section>
+
   <!-- High-Priority Backlog Recovery Preview -->
   <section class="plan-section surface-card leading-line" aria-label="Priority Backlog Recovery">
     <div class="section-heading">
@@ -189,7 +261,7 @@
               {crs.code}
             </span>
             <div class="backlog-desc">
-              <span class="backlog-title">{lecture.notes || `Class Lecture ${lecture.lecture_number ?? 1}`}</span>
+              <span class="backlog-title truncate" title={lecture.notes || `Class Lecture ${lecture.lecture_number ?? 1}`}>{lecture.notes || `Class Lecture ${lecture.lecture_number ?? 1}`}</span>
               <span class="backlog-date tabular-nums">{lecture.date}</span>
             </div>
             <button

@@ -100,7 +100,7 @@
           </div>
 
           <div class="exam-card-main">
-            <div class="exam-name" title={exam.title}>{exam.title}</div>
+            <div class="exam-name truncate" title={exam.title}>{exam.title}</div>
             <div class="exam-course">
               <span class="course-code" style="color: {crs.color || '#1A6B4E'};">{crs.code}</span>
               <span class="course-syllabus">Syllabus: {exam.syllabus_range}</span>
@@ -136,6 +136,7 @@
               class="primary mini-prep-btn"
               onclick={() => startExamPrep(exam)}
               title="Launch dedicated Pomodoro Exam Prep Block"
+              aria-label="Launch 25-minute prep block for {exam.title}"
             >
               <Play size={11} strokeWidth={2} />
               <span>Launch Prep Block</span>

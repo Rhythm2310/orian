@@ -123,6 +123,12 @@
       }, 50);
     }
   });
+
+  $effect(() => {
+    if (query && selectedIndex >= filteredActions.length) {
+      selectedIndex = 0;
+    }
+  });
 </script>
 
 {#if store.showCommandPalette}
@@ -149,15 +155,21 @@
           type="text"
           placeholder="Type a command or jump to view..."
           bind:value={query}
+          role="combobox"
+          aria-expanded="true"
+          aria-autocomplete="list"
+          aria-controls="command-actions-list"
+          aria-activedescendant={filteredActions[selectedIndex] ? `action-${filteredActions[selectedIndex].id}` : undefined}
           aria-label="Search commands"
         />
         <kbd class="key-badge">Esc</kbd>
       </div>
 
-      <div class="actions-list" role="listbox" aria-label="Available commands">
+      <div class="actions-list" id="command-actions-list" role="listbox" aria-label="Available commands">
         {#each filteredActions as action, idx (action.id)}
           {@const Icon = action.icon}
           <button
+            id="action-{action.id}"
             type="button"
             class="action-item {selectedIndex === idx ? 'focused' : ''}"
             onclick={() => execute(action)}

@@ -264,9 +264,22 @@
   --accent-blue-ink: #3399FF;
 
   --focus-ring: 0 0 0 2px #000000, 0 0 0 4px #00FF99;
+  caret-color: #00FF99;
 }
 
-[data-contrast="high"] * {
+[data-contrast="high"] .surface-card,
+[data-contrast="high"] .class-card,
+[data-contrast="high"] .exam-card,
+[data-contrast="high"] .modal-card,
+[data-contrast="high"] .filter-pill,
+[data-contrast="high"] .slot-pill,
+[data-contrast="high"] .backlog-row,
+[data-contrast="high"] .toast-card,
+[data-contrast="high"] button,
+[data-contrast="high"] input,
+[data-contrast="high"] select,
+[data-contrast="high"] textarea,
+[data-contrast="high"] .tag {
   border-width: 2px !important;
 }
 
@@ -278,6 +291,18 @@
 }
 
 /* Browser Surface Precision Styling */
+:root {
+  caret-color: var(--accent-emerald);
+}
+
+input, textarea, select {
+  caret-color: var(--accent-emerald);
+}
+
+a, button {
+  text-underline-offset: 3px;
+}
+
 ::selection {
   background: var(--accent-emerald-subtle);
   color: var(--accent-emerald-ink);

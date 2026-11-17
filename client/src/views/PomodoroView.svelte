@@ -20,12 +20,14 @@
     VolumeX,
     Flame
   } from '@lucide/svelte';
-  import type { PomodoroMode, Course, Assessment } from '../lib/types.ts';
+  import type { PomodoroMode, Course, Assessment, ClassSession } from '../lib/types.ts';
 
   let timerInterval: ReturnType<typeof setInterval> | null = null;
   let sessionNotes = $state<string>('');
   let selectedMode = $state<PomodoroMode>('free_focus');
   let selectedCourseId = $state<string>('');
+  let selectedAssessmentId = $state<string>('');
+  let selectedClassId = $state<string>('');
   let customDurationMinutes = $state<number>(25);
 
   const active = $derived(store.activeTimer);
@@ -71,6 +73,8 @@
     playFocusStartChime(store.chimesEnabled);
     await api.startPomodoro({
       course_id: selectedCourseId || (store.snapshot?.courses?.[0]?.id || null),
+      assessment_id: selectedMode === 'exam_revision' && selectedAssessmentId ? selectedAssessmentId : undefined,
+      class_id: selectedMode === 'lecture_recovery' && selectedClassId ? selectedClassId : undefined,
       mode: selectedMode,
       durationMinutes: customDurationMinutes
     });
@@ -130,13 +134,31 @@
     const found = (store.snapshot?.courses || []).find(c => c.id === active.course_id);
     return found ? { code: found.code, name: found.name, color: found.color } : null;
   }
+
+  function getActiveAssessment(): Assessment | null {
+    if (!active || !active.assessment_id) return null;
+    return (store.snapshot?.upcomingExams || []).find(e => e.id === active.assessment_id) || null;
+  }
+
+  function getActiveClass(): ClassSession | null {
+    if (!active || !active.class_id) return null;
+    return (store.snapshot?.unwatchedLectures || []).find(l => l.id === active.class_id) ||
+      (store.snapshot?.todayClasses || []).find(l => l.id === active.class_id) || null;
+  }
 </script>
 
 <div class="stage-content focus-studio-stage">
   <!-- Focal Focus Stage (Golden Spiral Center) -->
   <div class="focus-arena">
     <!-- Focal SVG Progress Ring (1500 DPI Subpixel Crisp Anti-Aliasing) -->
-    <div class="ring-container">
+    <div
+      class="ring-container"
+      role="progressbar"
+      aria-valuenow={Math.round(progress * 100)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label="Pomodoro focus progress"
+    >
       <svg class="progress-ring-svg" viewBox="0 0 240 240" aria-hidden="true">
         <circle
           class="ring-track"
@@ -168,6 +190,18 @@
               {active.mode === 'exam_revision' ? 'Exam Revision' : active.mode === 'lecture_recovery' ? 'Lecture Recovery' : 'Deep Focus'}
             </span>
           </div>
+
+          {#if getActiveAssessment()}
+            {@const exam = getActiveAssessment()!}
+            <div class="active-focus-target truncate font-mono" title="{exam.title} · Block {Math.min((exam.revision_completed_blocks || 0) + 1, exam.revision_target_blocks || 4)}/{exam.revision_target_blocks || 4}">
+              {exam.title} · Block {Math.min((exam.revision_completed_blocks || 0) + 1, exam.revision_target_blocks || 4)}/{exam.revision_target_blocks || 4}
+            </div>
+          {:else if getActiveClass()}
+            {@const cls = getActiveClass()!}
+            <div class="active-focus-target truncate" title="{cls.notes || `Lecture ${cls.lecture_number ?? 1}`}">
+              Recovering: {cls.notes || `Lecture ${cls.lecture_number ?? 1}`}
+            </div>
+          {/if}
 
           <div class="timer-clock-digits tabular-nums">
             {formatTime(active.remainingSeconds ?? active.target_duration_seconds)}
@@ -309,6 +343,30 @@
             </select>
           </div>
 
+          {#if selectedMode === 'exam_revision'}
+            <div class="config-col">
+              <span class="col-title">Target Assessment</span>
+              <select bind:value={selectedAssessmentId} aria-label="Select Target Assessment">
+                <option value="">General Exam Prep</option>
+                {#each (store.snapshot?.upcomingExams || []).filter(e => !selectedCourseId || e.course_id === selectedCourseId) as exam (exam.id)}
+                  <option value={exam.id}>{exam.course_code ? `${exam.course_code} · ` : ''}{exam.title} ({exam.assessment_type})</option>
+                {/each}
+              </select>
+            </div>
+          {/if}
+
+          {#if selectedMode === 'lecture_recovery'}
+            <div class="config-col">
+              <span class="col-title">Target Lecture</span>
+              <select bind:value={selectedClassId} aria-label="Select Target Lecture">
+                <option value="">General Backlog Recovery</option>
+                {#each (store.snapshot?.unwatchedLectures || []).filter(l => !selectedCourseId || l.course_id === selectedCourseId) as lecture (lecture.id)}
+                  <option value={lecture.id}>{lecture.course_code ? `${lecture.course_code} · ` : ''}{lecture.notes || `Lecture ${lecture.lecture_number ?? 1}`} ({lecture.date})</option>
+                {/each}
+              </select>
+            </div>
+          {/if}
+
           <div class="config-col">
             <span class="col-title">Duration</span>
             <div class="duration-pills">
@@ -375,7 +433,9 @@
     stroke: var(--accent-emerald);
     stroke-width: 6;
     stroke-linecap: round;
-    transition: stroke-dashoffset 400ms ease;
+    transition: stroke-dashoffset 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    transform: translateZ(0);
+    will-change: stroke-dashoffset;
   }
 
   .timer-center-content {
@@ -390,6 +450,15 @@
     display: flex;
     align-items: center;
     gap: 6px;
+  }
+
+  .active-focus-target {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink-secondary);
+    max-width: 190px;
+    text-align: center;
+    letter-spacing: -0.01em;
   }
 
   .course-pill {

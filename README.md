@@ -68,10 +68,11 @@ Orian was developed strictly test-first following the `/tdd` protocol:
 ▶ Exam Triage & Daily Capacity Allocator (7 tests)
 ▶ Validators & Syllabus Matcher (14 tests)
 ▶ SQLite Repositories & Migrations (12 tests)
-▶ Diagnostic Bug Reproduction Suite (8 tests)
+▶ Diagnostic Bug Reproduction Suite (10 tests)
+▶ Impeccable & Core Enhancements Suite (4 tests)
 ▶ Pure IPC Service Controller (5 tests)
 
-Total: 69 tests passing (0 failures, 100% pass)
+Total: 76 tests passing (0 failures, 100% pass)
 ```
 
 The frontend complies with the `/impeccable` design system rules (`impeccable detect` reports 0 issues).

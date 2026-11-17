@@ -1,6 +1,7 @@
 <script lang="ts">
   import { store } from '../lib/store.svelte.ts';
   import { api } from '../lib/api.ts';
+  import { playSuccessChime } from '../lib/audio.ts';
   import {
     ListTodo,
     Filter,
@@ -60,6 +61,7 @@
   }
 
   async function markDone(lecture: ClassSession): Promise<void> {
+    playSuccessChime(store.chimesEnabled);
     await api.markClassReviewed(lecture.id);
     store.showToast('Lecture marked as reviewed.');
     await store.refreshSnapshot();
@@ -158,7 +160,7 @@
 
               <div class="lecture-details">
                 <div class="lecture-title-row">
-                  <span class="lecture-title">
+                  <span class="lecture-title truncate" title={lecture.notes || `Lecture ${lecture.lecture_number ?? 1}`}>
                     {lecture.notes || `Lecture ${lecture.lecture_number ?? 1}`}
                   </span>
                   {#if inSyllabus}
@@ -303,7 +305,8 @@
   }
 
   .queue-card.card-syllabus {
-    border-left: 3px solid var(--accent-crimson);
+    background: color-mix(in srgb, var(--accent-crimson-subtle) 28%, var(--bg-surface));
+    border-color: color-mix(in srgb, var(--accent-crimson) 32%, var(--border-subtle));
   }
 
   .card-left {
